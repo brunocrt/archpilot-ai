@@ -1,0 +1,51 @@
+# General
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+env.bak/
+venv.bak/
+
+# Node
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.next/
+out/
+
+# IDEs and editors
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.*.local
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Databases and logs
+*.sqlite3
+*.db
+logs/
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Misc
+dist/
+build/
+*.log
+.DS_Store
+Thumbs.db
+.ipynb_checkpoints/
