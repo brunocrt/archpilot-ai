@@ -1,22 +1,17 @@
 FROM node:18-alpine AS deps
-WORKDIR /app
-COPY package.json package.json
-COPY package-lock.json package-lock.json 2>/dev/null || true
-RUN npm install --production
+WORKDIR /app/apps/web
+COPY apps/web/package.json ./
+RUN npm install
 
 FROM node:18-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+WORKDIR /app/apps/web
+COPY --from=deps /app/apps/web/node_modules ./node_modules
+COPY apps/web ./
 RUN npm run build
 
 FROM node:18-alpine AS runner
-WORKDIR /app
+WORKDIR /app/apps/web
 ENV NODE_ENV=production
-COPY --from=builder /app/next.config.js ./
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+COPY --from=builder /app/apps/web ./
 EXPOSE 3000
 CMD ["npm", "start"]
