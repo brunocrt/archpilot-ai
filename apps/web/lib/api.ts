@@ -12,6 +12,16 @@ export interface Project {
   created_at: string;
 }
 
+export interface DocumentSummary {
+  id: string;
+  project_id?: string;
+  project_name?: string;
+  filename: string;
+  content_type?: string;
+  status: string;
+  uploaded_at: string;
+}
+
 export interface RetrievedChunk {
   chunk_id: string;
   document_id: string;
@@ -74,6 +84,18 @@ export async function createProject(name: string, description?: string): Promise
   });
   if (!res.ok) {
     throw new Error('Failed to create project');
+  }
+  return await res.json();
+}
+
+export async function listDocuments(projectId?: string): Promise<DocumentSummary[]> {
+  const url = new URL(`${API_URL}/documents/`);
+  if (projectId) {
+    url.searchParams.set('project_id', projectId);
+  }
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    throw new Error('Failed to load documents');
   }
   return await res.json();
 }

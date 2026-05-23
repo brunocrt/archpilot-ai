@@ -297,6 +297,62 @@ a {
   font-size: 14px;
 }
 
+.document-list {
+  margin-top: 20px;
+  border-top: 1px solid #e4e9f1;
+  padding-top: 16px;
+  overflow-x: auto;
+}
+
+.document-list table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.document-list th,
+.document-list td {
+  border-bottom: 1px solid #e4e9f1;
+  padding: 10px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.document-list th {
+  color: #38445a;
+  font-weight: 700;
+}
+
+.empty-state {
+  margin: 0;
+  color: #647084;
+  font-size: 14px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+  color: #647084;
+  font-size: 14px;
+}
+
+.pagination button {
+  border: 1px solid #cfd7e3;
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: #fff;
+  color: #172033;
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .settings-form {
   display: grid;
   gap: 14px;

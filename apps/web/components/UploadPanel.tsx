@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { createProject, listProjects, Project, uploadDocument } from '../lib/api';
+import {
+  createProject,
+  listDocuments,
+  listProjects,
+  DocumentSummary,
+  Project,
+  uploadDocument,
+} from '../lib/api';
 
 const ACCEPTED_TYPES = new Set([
   'application/json',
@@ -8,10 +15,13 @@ const ACCEPTED_TYPES = new Set([
   'text/plain',
 ]);
 const ACCEPTED_EXTENSIONS = ['.json', '.md', '.markdown', '.pdf', '.txt'];
+const PAGE_SIZE = 8;
 
 export default function UploadPanel() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
+  const [documents, setDocuments] = useState<DocumentSummary[]>([]);
+  const [documentPage, setDocumentPage] = useState(1);
   const [newProjectName, setNewProjectName] = useState('');
   const [creatingProject, setCreatingProject] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -24,6 +34,20 @@ export default function UploadPanel() {
       .then(setProjects)
       .catch(() => setError('Failed to load projects'));
   }, []);
+
+  useEffect(() => {
+    refreshDocuments(projectId);
+  }, [projectId]);
+
+  async function refreshDocuments(selectedProjectId = projectId) {
+    try {
+      const loadedDocuments = await listDocuments(selectedProjectId || undefined);
+      setDocuments(loadedDocuments);
+      setDocumentPage(1);
+    } catch (err) {
+      setError('Failed to load uploaded files');
+    }
+  }
 
   async function handleCreateProject(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,6 +98,7 @@ export default function UploadPanel() {
       if (uploaded.length > 0) {
         setStatus(`Uploaded ${uploaded.length} file${uploaded.length === 1 ? '' : 's'}${project ? ` to ${project.name}` : ''}.`);
         setResults(uploaded);
+        await refreshDocuments();
       }
       if (failed.length > 0) {
         setError(`Failed to upload: ${failed.join(', ')}`);
@@ -87,6 +112,19 @@ export default function UploadPanel() {
     const filename = file.name.toLowerCase();
     return ACCEPTED_TYPES.has(file.type) || ACCEPTED_EXTENSIONS.some((extension) => filename.endsWith(extension));
   }
+
+  function formatUploadedAt(uploadedAt: string) {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(uploadedAt));
+  }
+
+  const pageCount = Math.max(1, Math.ceil(documents.length / PAGE_SIZE));
+  const currentPage = Math.min(documentPage, pageCount);
+  const pageStart = documents.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, documents.length);
+  const visibleDocuments = documents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <section className="upload-panel">
@@ -133,6 +171,55 @@ export default function UploadPanel() {
           ))}
         </ul>
       )}
+      <div className="document-list">
+        <div className="source-heading">
+          <h3>Uploaded Files</h3>
+          <span>{documents.length === 0 ? '0 shown' : `${pageStart}-${pageEnd} of ${documents.length}`}</span>
+        </div>
+        {documents.length === 0 ? (
+          <p className="empty-state">No files uploaded for this project yet.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Project</th>
+                <th>Status</th>
+                <th>Uploaded</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleDocuments.map((document) => (
+                <tr key={document.id}>
+                  <td>{document.filename}</td>
+                  <td>{document.project_name || 'Unassigned'}</td>
+                  <td>{document.status}</td>
+                  <td>{formatUploadedAt(document.uploaded_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {documents.length > PAGE_SIZE && (
+          <div className="pagination">
+            <button
+              type="button"
+              onClick={() => setDocumentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </button>
+            <span>Page {currentPage} of {pageCount}</span>
+            <button
+              type="button"
+              onClick={() => setDocumentPage((page) => Math.min(pageCount, page + 1))}
+              disabled={currentPage === pageCount}
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
