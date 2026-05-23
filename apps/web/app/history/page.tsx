@@ -101,5 +101,12 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(new Date(value));
+  }).format(parseApiDate(value));
+}
+
+function parseApiDate(value: string): Date {
+  if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(value)) {
+    return new Date(value);
+  }
+  return new Date(`${value}Z`);
 }
