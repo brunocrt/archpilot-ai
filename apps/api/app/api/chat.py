@@ -64,12 +64,19 @@ async def query_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) -> 
     else:
         conversation = conv_repo.create_conversation()
 
+    project_uuid = None
+    if payload.project_id:
+        try:
+            project_uuid = uuid.UUID(payload.project_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid project_id")
+
     # Persist user message
     user_msg = conv_repo.add_message(conversation.id, role="user", content=payload.question)
 
     # Retrieve relevant chunks
     retriever = RetrievalService(db)
-    retrieved = await retriever.retrieve(payload.question, top_k=payload.top_k)
+    retrieved = await retriever.retrieve(payload.question, top_k=payload.top_k, project_id=project_uuid)
     retrieved_chunks: List[schemas.RetrievedChunk] = []
     for chunk, score in retrieved:
         retrieved_chunks.append(

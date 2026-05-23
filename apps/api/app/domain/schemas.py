@@ -23,6 +23,8 @@ class DocumentChunkBase(BaseModel):
 
 class DocumentBase(BaseModel):
     id: UUID
+    project_id: Optional[UUID] = None
+    project_name: Optional[str] = None
     filename: str
     content_type: Optional[str] = None
     status: str
@@ -37,12 +39,28 @@ class DocumentWithChunks(DocumentBase):
 
 class DocumentUploadResponse(BaseModel):
     document_id: str
+    project_id: Optional[str] = None
     filename: str
     status: str
 
 
+class ProjectBase(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    description: Optional[str] = None
+
+
 class ChatQuery(BaseModel):
     conversation_id: Optional[str] = Field(None, description="ID of an existing conversation to continue")
+    project_id: Optional[str] = Field(None, description="Optional project scope for retrieval")
     question: str = Field(..., description="The user's question")
     top_k: int = Field(5, description="Number of top chunks to retrieve")
 
@@ -61,6 +79,18 @@ class AnswerResponse(BaseModel):
     answer: str
     sources: List[RetrievedChunk]
     retrieved_chunks: List[RetrievedChunk]
+
+
+class LLMSettingsResponse(BaseModel):
+    provider: str
+    model: str
+    has_api_key: bool
+
+
+class LLMSettingsUpdate(BaseModel):
+    provider: str = Field(..., description="LLM provider: none or openai")
+    model: str = Field("gpt-3.5-turbo", description="Provider model name")
+    api_key: Optional[str] = Field(None, description="Provider API key")
 
 
 class FeedbackCreate(BaseModel):

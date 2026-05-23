@@ -7,6 +7,7 @@ FROM node:18-alpine AS builder
 WORKDIR /app/apps/web
 COPY --from=deps /app/apps/web/node_modules ./node_modules
 COPY apps/web ./
+RUN chmod +x node_modules/.bin/next node_modules/next/dist/bin/next
 RUN npm run build
 
 FROM node:18-alpine AS runner

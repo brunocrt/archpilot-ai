@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .db import init_db
 from .logging_config import configure_logging
-from .api import health, documents, chat, feedback
+from .api import health, documents, chat, feedback, projects, settings as settings_api
 
 
 @asynccontextmanager
@@ -33,9 +33,11 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(health.router, prefix="/health", tags=["health"])
+    app.include_router(projects.router, prefix="/projects", tags=["projects"])
     app.include_router(documents.router, prefix="/documents", tags=["documents"])
     app.include_router(chat.router, prefix="/chat", tags=["chat"])
     app.include_router(feedback.router, prefix="/feedback", tags=["feedback"])
+    app.include_router(settings_api.router, prefix="/settings", tags=["settings"])
 
     return app
 

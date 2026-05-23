@@ -8,11 +8,11 @@ key is configured, the gateway will return a fallback response.
 from __future__ import annotations
 
 import logging
-from typing import Optional
+import re
 
 import httpx
 
-from ..config import settings
+from .llm_settings import llm_settings_store
 
 logger = logging.getLogger(__name__)
 
@@ -26,22 +26,106 @@ class LLMGateway:
         :param prompt: Prompt text to send
         :return: Assistant response
         """
-        # Prefer Anthropic if configured (future extension)
-        if settings.OPENAI_API_KEY:
-            return await self._ask_openai(prompt)
+        runtime_settings = llm_settings_store.get()
+        if runtime_settings.provider == "openai" and runtime_settings.api_key:
+            return await self._ask_openai(prompt, api_key=runtime_settings.api_key, model=runtime_settings.model)
         else:
-            logger.warning("No LLM API key configured; returning fallback answer")
-            return "I'm sorry, but I cannot answer that question because no LLM provider is configured."
+            logger.warning("No LLM API key configured; returning extractive fallback answer")
+            return self._fallback_answer(prompt)
 
-    async def _ask_openai(self, prompt: str) -> str:
+    def _fallback_answer(self, prompt: str) -> str:
+        """Return a cited extractive answer when no LLM provider is configured."""
+        question = self._extract_section(prompt, "User question:", "Context:")
+        context = prompt.split("Context:", maxsplit=1)[-1].strip()
+        chunks = self._parse_context_chunks(context)
+        if not chunks:
+            return (
+                "No LLM provider is configured, and there was no retrieved context "
+                "available to answer from."
+            )
+
+        terms = self._question_terms(question)
+        matches: list[tuple[int, str, str]] = []
+        for chunk_id, content in chunks:
+            for sentence in self._sentences(self._clean_context(content)):
+                score = self._sentence_score(sentence, terms, question)
+                if score > 0:
+                    matches.append((score, chunk_id, sentence))
+
+        if not matches:
+            matches = [
+                (0, chunk_id, self._first_excerpt(self._clean_context(content)))
+                for chunk_id, content in chunks[:3]
+            ]
+
+        matches.sort(key=lambda item: item[0], reverse=True)
+        evidence = " ".join(f"{sentence} [{chunk_id}]" for _, chunk_id, sentence in matches[:3])
+        return (
+            "No LLM provider is configured, so this is an extractive answer from "
+            f"retrieved context: {evidence}"
+        )
+
+    def _extract_section(self, text: str, start_marker: str, end_marker: str) -> str:
+        if start_marker not in text:
+            return ""
+        section = text.split(start_marker, maxsplit=1)[1]
+        if end_marker in section:
+            section = section.split(end_marker, maxsplit=1)[0]
+        return section.strip()
+
+    def _parse_context_chunks(self, context: str) -> list[tuple[str, str]]:
+        pattern = re.compile(r"^\[(?P<id>[^\]]+)\]\s*(?P<content>.*?)(?=^\[[^\]]+\]|\Z)", re.M | re.S)
+        return [
+            (match.group("id").strip(), match.group("content").strip())
+            for match in pattern.finditer(context)
+            if match.group("content").strip()
+        ]
+
+    def _question_terms(self, question: str) -> set[str]:
+        stop_words = {"about", "archpilot", "choose", "could", "does", "that", "the", "this", "what", "when", "where", "which", "why"}
+        return {
+            term
+            for term in re.findall(r"[a-z0-9]+", question.lower())
+            if len(term) > 3 and term not in stop_words
+        }
+
+    def _sentences(self, content: str) -> list[str]:
+        return [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", content) if sentence.strip()]
+
+    def _sentence_score(self, sentence: str, terms: set[str], question: str) -> int:
+        lower_sentence = sentence.lower()
+        score = sum(1 for term in terms if term in lower_sentence)
+        if question.lower().startswith("why"):
+            reason_terms = {"allow", "because", "easier", "goal", "however", "overhead", "simple", "slow"}
+            score += sum(1 for term in reason_terms if term in lower_sentence)
+        return score
+
+    def _clean_context(self, content: str) -> str:
+        lines = []
+        for line in content.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or stripped in {"Accepted", "Context", "Decision", "Status"}:
+                continue
+            if stripped.startswith("Date:"):
+                continue
+            lines.append(stripped.lstrip("-* "))
+        return " ".join(lines)
+
+    def _first_excerpt(self, content: str, max_length: int = 280) -> str:
+        excerpt = " ".join(content.split())
+        if len(excerpt) <= max_length:
+            return excerpt
+        return f"{excerpt[:max_length].rstrip()}..."
+
+    async def _ask_openai(self, prompt: str, api_key: str, model: str) -> str:
         """Call OpenAI's Chat API."""
         url = "https://api.openai.com/v1/chat/completions"
         headers = {
-            "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
         payload = {
-            "model": "gpt-3.5-turbo",
+            "model": model,
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt},

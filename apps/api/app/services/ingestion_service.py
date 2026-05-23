@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from typing import Optional
+from uuid import UUID
 
 import anyio
 from fastapi import UploadFile
@@ -25,14 +26,18 @@ class IngestionService:
     def __init__(self, document_repo: DocumentRepository) -> None:
         self.document_repo = document_repo
 
-    async def ingest_upload(self, file: UploadFile) -> str:
+    async def ingest_upload(self, file: UploadFile, project_id: Optional[UUID] = None) -> str:
         """Process an uploaded file and persist it to the database.
 
         :param file: FastAPI UploadFile
         :return: ID of the created document
         """
         # Create document entry
-        document = self.document_repo.create_document(filename=file.filename, content_type=file.content_type)
+        document = self.document_repo.create_document(
+            filename=file.filename,
+            content_type=file.content_type,
+            project_id=project_id,
+        )
         doc_id = document.id
 
         # Parse file

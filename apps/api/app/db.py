@@ -24,6 +24,10 @@ def init_db() -> None:
     with engine.begin() as connection:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as connection:
+        connection.execute(
+            text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id)")
+        )
 
 
 @contextmanager

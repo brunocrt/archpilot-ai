@@ -23,11 +23,27 @@ class Document(Base):
     __tablename__ = "documents"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
     filename = Column(String, nullable=False)
     content_type = Column(String, nullable=True)
     status = Column(String, nullable=False, default="processed")
     uploaded_at = Column(DateTime, default=datetime.utcnow)
+    project = relationship("Project", back_populates="documents")
     chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
+
+    @property
+    def project_name(self) -> str | None:
+        return self.project.name if self.project else None
+
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False, unique=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    documents = relationship("Document", back_populates="project")
 
 
 class DocumentChunk(Base):

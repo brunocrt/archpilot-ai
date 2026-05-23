@@ -17,8 +17,18 @@ class DocumentRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def create_document(self, filename: str, content_type: Optional[str] = None) -> models.Document:
-        document = models.Document(filename=filename, content_type=content_type, status="processing")
+    def create_document(
+        self,
+        filename: str,
+        content_type: Optional[str] = None,
+        project_id: Optional[UUID] = None,
+    ) -> models.Document:
+        document = models.Document(
+            filename=filename,
+            content_type=content_type,
+            project_id=project_id,
+            status="processing",
+        )
         self.db.add(document)
         self.db.commit()
         self.db.refresh(document)
@@ -43,8 +53,11 @@ class DocumentRepository:
         self.db.refresh(chunk)
         return chunk
 
-    def list_documents(self) -> List[models.Document]:
-        return self.db.query(models.Document).order_by(models.Document.uploaded_at.desc()).all()
+    def list_documents(self, project_id: Optional[UUID] = None) -> List[models.Document]:
+        query = self.db.query(models.Document)
+        if project_id:
+            query = query.filter(models.Document.project_id == project_id)
+        return query.order_by(models.Document.uploaded_at.desc()).all()
 
     def get_document(self, document_id: UUID) -> Optional[models.Document]:
         return self.db.query(models.Document).filter(models.Document.id == document_id).first()
