@@ -82,9 +82,17 @@ async def retrieve_chunks(
     top_k: int,
     db,
     project_id: uuid.UUID | None,
+    document_filename: str | None = None,
+    content_type: str | None = None,
 ) -> List[schemas.RetrievedChunk]:
     retriever = RetrievalService(db)
-    retrieved = await retriever.retrieve(question, top_k=top_k, project_id=project_id)
+    retrieved = await retriever.retrieve(
+        question,
+        top_k=top_k,
+        project_id=project_id,
+        document_filename=document_filename,
+        content_type=content_type,
+    )
     return [
         schemas.RetrievedChunk(
             chunk_id=str(chunk.id),
@@ -116,7 +124,14 @@ async def query_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) -> 
     conv_repo.add_message(conversation.id, role="user", content=payload.question)
 
     # Retrieve relevant chunks
-    retrieved_chunks = await retrieve_chunks(payload.question, payload.top_k, db, project_uuid)
+    retrieved_chunks = await retrieve_chunks(
+        payload.question,
+        payload.top_k,
+        db,
+        project_uuid,
+        payload.document_filename,
+        payload.content_type,
+    )
 
     # Build prompt using template
     prompt = build_prompt(payload.question, retrieved_chunks)
@@ -148,7 +163,14 @@ async def stream_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) ->
     project_uuid = parse_project_id(payload.project_id)
     conv_repo.add_message(conversation.id, role="user", content=payload.question)
 
-    retrieved_chunks = await retrieve_chunks(payload.question, payload.top_k, db, project_uuid)
+    retrieved_chunks = await retrieve_chunks(
+        payload.question,
+        payload.top_k,
+        db,
+        project_uuid,
+        payload.document_filename,
+        payload.content_type,
+    )
     prompt = build_prompt(payload.question, retrieved_chunks)
 
     async def events():

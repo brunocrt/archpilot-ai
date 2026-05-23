@@ -61,6 +61,8 @@ class ProjectCreate(BaseModel):
 class ChatQuery(BaseModel):
     conversation_id: Optional[str] = Field(None, description="ID of an existing conversation to continue")
     project_id: Optional[str] = Field(None, description="Optional project scope for retrieval")
+    document_filename: Optional[str] = Field(None, description="Optional filename contains filter")
+    content_type: Optional[str] = Field(None, description="Optional document content type filter")
     question: str = Field(..., description="The user's question")
     top_k: int = Field(5, description="Number of top chunks to retrieve")
 

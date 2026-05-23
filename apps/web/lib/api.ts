@@ -127,10 +127,13 @@ export async function chatQuery(
   question: string,
   conversationId?: string,
   projectId?: string,
+  filters?: { documentFilename?: string; contentType?: string },
 ): Promise<AnswerResponse> {
   const payload: any = { question, top_k: 5 };
   if (conversationId) payload.conversation_id = conversationId;
   if (projectId) payload.project_id = projectId;
+  if (filters?.documentFilename) payload.document_filename = filters.documentFilename;
+  if (filters?.contentType) payload.content_type = filters.contentType;
   const res = await fetch(`${API_URL}/chat/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -147,6 +150,8 @@ export async function chatQueryStream(
   handlers: {
     conversationId?: string;
     projectId?: string;
+    documentFilename?: string;
+    contentType?: string;
     onConversation?: (conversationId: string) => void;
     onSources?: (sources: RetrievedChunk[]) => void;
     onDelta?: (text: string) => void;
@@ -156,6 +161,8 @@ export async function chatQueryStream(
   const payload: any = { question, top_k: 5 };
   if (handlers.conversationId) payload.conversation_id = handlers.conversationId;
   if (handlers.projectId) payload.project_id = handlers.projectId;
+  if (handlers.documentFilename) payload.document_filename = handlers.documentFilename;
+  if (handlers.contentType) payload.content_type = handlers.contentType;
   const res = await fetch(`${API_URL}/chat/query/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

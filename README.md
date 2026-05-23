@@ -117,6 +117,7 @@ archpilot-ai/
 - `/chat/query/stream` streams answer deltas as server-sent events for the web chat UI.
 - `/chat/conversations` and `/chat/conversations/{id}` expose persisted conversation history.
 - The web UI renders basic markdown in answers and turns cited chunk IDs into numbered citation cards.
+- Retrieval uses pgvector when query embeddings are available, blends vector and keyword candidates, reranks the combined set, and supports `project_id`, `document_filename`, and `content_type` filters on chat requests.
 
 ## Contributing
 
