@@ -25,9 +25,9 @@ def split_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]
         end = min(start + chunk_size, text_length)
         chunk = text[start:end]
         chunks.append(chunk)
+        if end == text_length:
+            break
         start = end - overlap
         if start < 0:
             start = 0
-        if start >= text_length:
-            break
     return chunks

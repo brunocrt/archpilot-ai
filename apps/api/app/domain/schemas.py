@@ -6,34 +6,33 @@ Defines request and response models for each entity.  Response models use
 """
 from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DocumentChunkBase(BaseModel):
-    id: str
-    document_id: str
+    id: UUID
+    document_id: UUID
     chunk_index: int
     content: str
     # Note: embedding and metadata fields are omitted from API responses by default
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DocumentBase(BaseModel):
-    id: str
+    id: UUID
     filename: str
     content_type: Optional[str] = None
     status: str
     uploaded_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DocumentWithChunks(DocumentBase):
-    chunks: List[DocumentChunkBase] = []
+    chunks: List[DocumentChunkBase] = Field(default_factory=list)
 
 
 class DocumentUploadResponse(BaseModel):
@@ -71,11 +70,10 @@ class FeedbackCreate(BaseModel):
 
 
 class FeedbackResponse(BaseModel):
-    id: str
-    message_id: str
+    id: UUID
+    message_id: UUID
     rating: str
     comment: Optional[str] = None
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
