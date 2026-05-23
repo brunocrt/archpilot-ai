@@ -36,7 +36,7 @@ class DocumentRepository:
             chunk_index=chunk_index,
             content=content,
             embedding=embedding,
-            metadata=metadata,
+            chunk_metadata=metadata,
         )
         self.db.add(chunk)
         self.db.commit()

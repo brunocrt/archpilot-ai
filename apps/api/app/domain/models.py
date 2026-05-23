@@ -38,7 +38,7 @@ class DocumentChunk(Base):
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
     embedding = Column(JSONB, nullable=True)  # storing embedding as JSON array for simplicity
-    metadata = Column(JSONB, nullable=True)
+    chunk_metadata = Column("metadata", JSONB, nullable=True)
 
     document = relationship("Document", back_populates="chunks")
 

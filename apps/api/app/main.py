@@ -1,22 +1,26 @@
-"""
-Main entrypoint for the ArchPilot AI FastAPI application.
+"""Main entrypoint for the ArchPilot AI FastAPI application."""
+from contextlib import asynccontextmanager
 
-This file creates the FastAPI instance, sets up logging, includes the API
-routers and defines the root path.  The application is meant to be run using
-Uvicorn or a similar ASGI server.
-"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
+from .db import init_db
 from .logging_config import configure_logging
 from .api import health, documents, chat, feedback
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize application resources before serving requests."""
+    init_db()
+    yield
 
 
 def create_app() -> FastAPI:
     """Factory for the FastAPI app."""
     configure_logging()
-    app = FastAPI(title=settings.APP_NAME, version="0.1.0")
+    app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
 
     # CORS
     app.add_middleware(
