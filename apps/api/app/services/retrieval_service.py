@@ -57,22 +57,77 @@ class RetrievalService:
         top_k: int,
         project_id: UUID | None = None,
     ) -> List[models.DocumentChunk]:
-        terms = [
-            term
-            for term in re.findall(r"[a-z0-9]+", question.lower())
-            if len(term) > 3
-            and term
-            not in {"about", "archpilot", "does", "that", "this", "what", "when", "where", "which", "why"}
-        ]
+        terms = self._question_terms(question)
         if not terms:
             return []
         filters = [models.DocumentChunk.content.ilike(f"%{term}%") for term in terms]
         query = self.db.query(models.DocumentChunk).join(models.DocumentChunk.document)
         if project_id:
             query = query.filter(models.Document.project_id == project_id)
-        return (
+        candidates = (
             query.filter(or_(*filters))
             .order_by(models.Document.uploaded_at.desc(), models.DocumentChunk.chunk_index)
-            .limit(top_k)
+            .limit(max(top_k * 8, 20))
             .all()
         )
+        ranked = [
+            (self._keyword_score(question, terms, chunk), chunk)
+            for chunk in candidates
+        ]
+        ranked = [(score, chunk) for score, chunk in ranked if score > 0]
+        ranked.sort(
+            key=lambda item: (
+                item[0],
+                item[1].document.uploaded_at,
+                -item[1].chunk_index,
+            ),
+            reverse=True,
+        )
+        return [chunk for _, chunk in ranked[:top_k]]
+
+    def _question_terms(self, question: str) -> list[str]:
+        stop_words = {
+            "about",
+            "archpilot",
+            "choose",
+            "does",
+            "that",
+            "this",
+            "what",
+            "when",
+            "where",
+            "which",
+            "why",
+        }
+        return [
+            term
+            for term in re.findall(r"[a-z0-9]+", question.lower())
+            if len(term) > 3 and term not in stop_words
+        ]
+
+    def _keyword_score(
+        self,
+        question: str,
+        terms: list[str],
+        chunk: models.DocumentChunk,
+    ) -> int:
+        content = chunk.content.lower()
+        filename = chunk.document.filename.lower()
+        score = sum(2 for term in terms if term in content)
+        score += sum(1 for term in terms if term in filename)
+
+        phrases = self._question_phrases(question)
+        score += sum(6 for phrase in phrases if phrase in content)
+        score += sum(3 for phrase in phrases if phrase in filename)
+
+        if question.lower().lstrip().startswith("why"):
+            reason_terms = {"because", "debugging", "easier", "faster", "overhead", "simple", "simpler"}
+            score += sum(1 for term in reason_terms if term in content)
+        return score
+
+    def _question_phrases(self, question: str) -> list[str]:
+        terms = self._question_terms(question)
+        return [
+            f"{terms[index]} {terms[index + 1]}"
+            for index in range(len(terms) - 1)
+        ]

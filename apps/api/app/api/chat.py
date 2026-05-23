@@ -23,7 +23,7 @@ from ..services.llm_gateway import LLMGateway
 router = APIRouter()
 
 
-PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "answer_with_citations.txt"
+PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "answer_with_citations.txt"
 
 
 def build_prompt(question: str, context_chunks: List[schemas.RetrievedChunk]) -> str:

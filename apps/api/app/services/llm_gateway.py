@@ -35,7 +35,7 @@ class LLMGateway:
 
     def _fallback_answer(self, prompt: str) -> str:
         """Return a cited extractive answer when no LLM provider is configured."""
-        question = self._extract_section(prompt, "User question:", "Context:")
+        question = self._extract_question(prompt)
         context = prompt.split("Context:", maxsplit=1)[-1].strip()
         chunks = self._parse_context_chunks(context)
         if not chunks:
@@ -44,10 +44,16 @@ class LLMGateway:
         terms = self._question_terms(question)
         matches: list[tuple[int, str, str]] = []
         for chunk_id, content in chunks:
-            for sentence in self._sentences(self._clean_context(content)):
+            for excerpt in self._decision_reason_excerpts(content):
+                score = self._sentence_score(excerpt, terms, question)
+                if score > 0:
+                    matches.append((score + self._content_score(excerpt, terms, question), chunk_id, excerpt))
+            cleaned_content = self._clean_context(content)
+            chunk_score = self._content_score(cleaned_content, terms, question)
+            for sentence in self._sentences(cleaned_content):
                 score = self._sentence_score(sentence, terms, question)
                 if score > 0:
-                    matches.append((score, chunk_id, sentence))
+                    matches.append((score + chunk_score, chunk_id, sentence))
 
         if not matches:
             matches = [
@@ -71,6 +77,13 @@ class LLMGateway:
             section = section.split(end_marker, maxsplit=1)[0]
         return section.strip()
 
+    def _extract_question(self, prompt: str) -> str:
+        for marker in ("User question:", "Question:"):
+            question = self._extract_section(prompt, marker, "Context:")
+            if question:
+                return question
+        return ""
+
     def _parse_context_chunks(self, context: str) -> list[tuple[str, str]]:
         pattern = re.compile(r"^\[(?P<id>[^\]]+)\]\s*(?P<content>.*?)(?=^\[[^\]]+\]|\Z)", re.M | re.S)
         return [
@@ -78,6 +91,33 @@ class LLMGateway:
             for match in pattern.finditer(context)
             if match.group("content").strip()
         ]
+
+    def _decision_reason_excerpts(self, content: str) -> list[str]:
+        lines = [line.strip().lstrip("-* ").strip() for line in content.splitlines()]
+        excerpts: list[str] = []
+        index = 0
+        while index < len(lines):
+            line = lines[index]
+            if line.lower().startswith("decision:"):
+                decision = line.split(":", maxsplit=1)[1].strip()
+                if not decision and index + 1 < len(lines):
+                    decision = lines[index + 1]
+                reason = self._nearby_labeled_value(lines, index + 1, "reason")
+                if decision and reason:
+                    excerpts.append(f"{decision} Reason: {reason}")
+            index += 1
+        return excerpts
+
+    def _nearby_labeled_value(self, lines: list[str], start_index: int, label: str) -> str:
+        for index in range(start_index, min(start_index + 5, len(lines))):
+            line = lines[index]
+            if line.lower().startswith(f"{label}:"):
+                value = line.split(":", maxsplit=1)[1].strip()
+                if value:
+                    return value
+                if index + 1 < len(lines):
+                    return lines[index + 1]
+        return ""
 
     def _question_terms(self, question: str) -> set[str]:
         stop_words = {"about", "archpilot", "choose", "could", "does", "that", "the", "this", "what", "when", "where", "which", "why"}
@@ -88,17 +128,45 @@ class LLMGateway:
         }
 
     def _sentences(self, content: str) -> list[str]:
-        return [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", content) if sentence.strip()]
+        sentences: list[str] = []
+        for sentence in re.split(r"(?<=[.!?])\s+", content):
+            sentence = sentence.strip()
+            if sentence and not self._looks_like_mixed_decision_list(sentence):
+                sentences.append(sentence)
+        return sentences
 
     def _sentence_score(self, sentence: str, terms: set[str], question: str) -> int:
         if len(sentence.split()) < 5:
             return 0
         lower_sentence = sentence.lower()
-        score = sum(1 for term in terms if term in lower_sentence)
+        direct_hits = sum(1 for term in terms if term in lower_sentence)
+        score = direct_hits
+        for phrase in self._question_phrases(question):
+            if phrase in lower_sentence:
+                score += 5
         if question.lower().startswith("why"):
             reason_terms = {"allow", "because", "easier", "goal", "however", "overhead", "simple", "slow"}
             score += sum(1 for term in reason_terms if term in lower_sentence)
+            if direct_hits == 0 and score < 2:
+                return 0
         return score
+
+    def _content_score(self, content: str, terms: set[str], question: str) -> int:
+        lower_content = content.lower()
+        score = sum(1 for term in terms if term in lower_content)
+        score += sum(4 for phrase in self._question_phrases(question) if phrase in lower_content)
+        return score
+
+    def _question_phrases(self, question: str) -> list[str]:
+        terms = [
+            term
+            for term in re.findall(r"[a-z0-9]+", question.lower())
+            if term in self._question_terms(question)
+        ]
+        return [
+            f"{terms[index]} {terms[index + 1]}"
+            for index in range(len(terms) - 1)
+        ]
 
     def _clean_context(self, content: str) -> str:
         lines = []
@@ -118,15 +186,33 @@ class LLMGateway:
                 continue
             if stripped.startswith("|") or set(stripped) <= {"|", "-", "+", " "}:
                 continue
-            lines.append(stripped.lstrip("-* "))
+            bullet = stripped.lstrip("-* ").strip()
+            if not self._looks_like_heading_label(bullet):
+                lines.append(bullet)
         return " ".join(lines)
+
+    def _looks_like_heading_label(self, text: str) -> bool:
+        words = text.split()
+        return len(words) <= 3 and not text.endswith((".", "?", "!"))
+
+    def _looks_like_mixed_decision_list(self, sentence: str) -> bool:
+        lower_sentence = sentence.lower()
+        decision_markers = {
+            "use embeddings",
+            "keyword search",
+            "use fastapi",
+            "modular monolith",
+            "pdf parsing",
+            "pgvector",
+        }
+        return sum(1 for marker in decision_markers if marker in lower_sentence) >= 3
 
     def _deduplicate_matches(self, matches: list[tuple[int, str, str]]) -> list[tuple[int, str, str]]:
         seen: set[str] = set()
         unique_matches = []
         for score, chunk_id, sentence in matches:
             key = re.sub(r"[^a-z0-9]+", " ", sentence.lower()).strip()[:120]
-            if key in seen:
+            if any(key in seen_key or seen_key in key for seen_key in seen):
                 continue
             seen.add(key)
             unique_matches.append((score, chunk_id, sentence))

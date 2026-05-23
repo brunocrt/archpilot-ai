@@ -40,7 +40,6 @@ logs/
 
 # Docker
 docker-compose.override.yml
-.dockerignore
 
 # Misc
 dist/
