@@ -38,6 +38,29 @@ export interface AnswerResponse {
   retrieved_chunks: RetrievedChunk[];
 }
 
+export interface MessageResponse {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title?: string;
+  created_at: string;
+  message_count: number;
+  last_message_at?: string;
+}
+
+export interface ConversationDetail {
+  id: string;
+  title?: string;
+  created_at: string;
+  messages: MessageResponse[];
+}
+
 export interface LLMSettings {
   provider: 'none' | 'openai';
   model: string;
@@ -115,6 +138,90 @@ export async function chatQuery(
   });
   if (!res.ok) {
     throw new Error('Chat failed');
+  }
+  return await res.json();
+}
+
+export async function chatQueryStream(
+  question: string,
+  handlers: {
+    conversationId?: string;
+    projectId?: string;
+    onConversation?: (conversationId: string) => void;
+    onSources?: (sources: RetrievedChunk[]) => void;
+    onDelta?: (text: string) => void;
+    onDone?: (response: AnswerResponse) => void;
+  },
+): Promise<void> {
+  const payload: any = { question, top_k: 5 };
+  if (handlers.conversationId) payload.conversation_id = handlers.conversationId;
+  if (handlers.projectId) payload.project_id = handlers.projectId;
+  const res = await fetch(`${API_URL}/chat/query/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok || !res.body) {
+    throw new Error('Streaming chat failed');
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let conversationId = handlers.conversationId || '';
+  let sources: RetrievedChunk[] = [];
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split('\n\n');
+    buffer = events.pop() || '';
+    for (const eventText of events) {
+      const parsed = parseSseEvent(eventText);
+      if (!parsed) continue;
+      if (parsed.event === 'conversation') {
+        conversationId = parsed.data.conversation_id;
+        handlers.onConversation?.(conversationId);
+      } else if (parsed.event === 'sources') {
+        sources = parsed.data;
+        handlers.onSources?.(sources);
+      } else if (parsed.event === 'delta') {
+        handlers.onDelta?.(parsed.data.text);
+      } else if (parsed.event === 'done') {
+        handlers.onDone?.({
+          conversation_id: parsed.data.conversation_id || conversationId,
+          answer: parsed.data.answer,
+          sources,
+          retrieved_chunks: sources,
+        });
+      }
+    }
+  }
+}
+
+function parseSseEvent(eventText: string): { event: string; data: any } | null {
+  const eventLine = eventText.split('\n').find((line) => line.startsWith('event: '));
+  const dataLine = eventText.split('\n').find((line) => line.startsWith('data: '));
+  if (!eventLine || !dataLine) return null;
+  return {
+    event: eventLine.replace('event: ', '').trim(),
+    data: JSON.parse(dataLine.replace('data: ', '')),
+  };
+}
+
+export async function listConversations(): Promise<ConversationSummary[]> {
+  const res = await fetch(`${API_URL}/chat/conversations`);
+  if (!res.ok) {
+    throw new Error('Failed to load conversations');
+  }
+  return await res.json();
+}
+
+export async function getConversation(conversationId: string): Promise<ConversationDetail> {
+  const res = await fetch(`${API_URL}/chat/conversations/${conversationId}`);
+  if (!res.ok) {
+    throw new Error('Failed to load conversation');
   }
   return await res.json();
 }

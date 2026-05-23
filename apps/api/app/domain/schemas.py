@@ -81,6 +81,31 @@ class AnswerResponse(BaseModel):
     retrieved_chunks: List[RetrievedChunk]
 
 
+class MessageResponse(BaseModel):
+    id: UUID
+    conversation_id: UUID
+    role: str
+    content: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConversationSummary(BaseModel):
+    id: UUID
+    title: Optional[str] = None
+    created_at: datetime
+    message_count: int
+    last_message_at: Optional[datetime] = None
+
+
+class ConversationDetail(BaseModel):
+    id: UUID
+    title: Optional[str] = None
+    created_at: datetime
+    messages: List[MessageResponse]
+
+
 class LLMSettingsResponse(BaseModel):
     provider: str
     model: str

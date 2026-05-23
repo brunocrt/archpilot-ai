@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { chatQuery, listProjects, AnswerResponse, Project, RetrievedChunk } from '../lib/api';
+import { chatQueryStream, listProjects, Project, RetrievedChunk } from '../lib/api';
 import SourcePanel from './SourcePanel';
+import MarkdownContent from './MarkdownContent';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -15,6 +16,7 @@ export default function ChatPanel() {
   const [projectId, setProjectId] = useState('');
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState<RetrievedChunk[]>([]);
+  const [activeAnswer, setActiveAnswer] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,19 +27,49 @@ export default function ChatPanel() {
 
   async function sendQuestion() {
     if (!question.trim()) return;
+    const currentQuestion = question;
     setLoading(true);
     setError(null);
-    // append user message
-    setMessages((msgs) => [...msgs, { role: 'user', content: question }]);
+    setQuestion('');
+    setSources([]);
+    setActiveAnswer('');
+    setMessages((msgs) => [
+      ...msgs,
+      { role: 'user', content: currentQuestion },
+      { role: 'assistant', content: '' },
+    ]);
     try {
-      const res: AnswerResponse = await chatQuery(question, conversationId, projectId || undefined);
-      setConversationId(res.conversation_id);
-      setMessages((msgs) => [...msgs, { role: 'assistant', content: res.answer }]);
-      setSources(res.sources);
+      await chatQueryStream(currentQuestion, {
+        conversationId,
+        projectId: projectId || undefined,
+        onConversation: setConversationId,
+        onSources: setSources,
+        onDelta: (text) => {
+          setMessages((msgs) => {
+            const next = [...msgs];
+            const lastIndex = next.length - 1;
+            next[lastIndex] = {
+              ...next[lastIndex],
+              content: `${next[lastIndex].content}${text}`,
+            };
+            return next;
+          });
+        },
+        onDone: (res) => {
+          setConversationId(res.conversation_id);
+          setActiveAnswer(res.answer);
+          setMessages((msgs) => {
+            const next = [...msgs];
+            const lastIndex = next.length - 1;
+            next[lastIndex] = { role: 'assistant', content: res.answer };
+            return next;
+          });
+        },
+      });
     } catch (err) {
       setError('Failed to get answer');
+      setMessages((msgs) => msgs.filter((_, index) => index < msgs.length - 1));
     } finally {
-      setQuestion('');
       setLoading(false);
     }
   }
@@ -58,7 +90,7 @@ export default function ChatPanel() {
                   : 'message-bubble assistant'
               }
             >
-              <p>{msg.content}</p>
+              <MarkdownContent content={msg.content || (loading && idx === messages.length - 1 ? 'Thinking...' : '')} sources={sources} />
             </div>
           </div>
         ))}
@@ -87,7 +119,7 @@ export default function ChatPanel() {
         </button>
         {error && <p className="form-error">{error}</p>}
       </div>
-      {sources && sources.length > 0 && <SourcePanel sources={sources} />}
+      {sources && sources.length > 0 && <SourcePanel sources={sources} answer={activeAnswer} />}
     </section>
   );
 }

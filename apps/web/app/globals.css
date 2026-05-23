@@ -121,6 +121,37 @@ a {
   white-space: pre-wrap;
 }
 
+.markdown-content {
+  display: grid;
+  gap: 8px;
+}
+
+.markdown-content p,
+.markdown-content ul,
+.markdown-content h3,
+.markdown-content h4 {
+  margin: 0;
+}
+
+.markdown-content ul {
+  padding-left: 18px;
+}
+
+.markdown-content code {
+  border: 1px solid #d7dde7;
+  border-radius: 4px;
+  padding: 1px 4px;
+  background: #eef2f6;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 0.95em;
+}
+
+.citation-link {
+  color: #1f5fbf;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .message-bubble.user {
   background: #e5f0ff;
   border: 1px solid #c9ddfb;
@@ -218,6 +249,11 @@ a {
   background: #fbfcfe;
 }
 
+.source-item.cited {
+  border-color: #8fb4ee;
+  background: #f4f8ff;
+}
+
 .source-meta {
   display: flex;
   flex-wrap: wrap;
@@ -230,9 +266,68 @@ a {
   font-family: Consolas, Monaco, monospace;
 }
 
+.source-id {
+  margin-bottom: 8px;
+  color: #647084;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .source-item p {
   margin: 0;
   line-height: 1.45;
+}
+
+.history-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.history-list,
+.history-detail {
+  border: 1px solid #dce2ea;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(23, 32, 51, 0.08);
+  padding: 20px;
+}
+
+.conversation-list {
+  display: grid;
+  gap: 10px;
+}
+
+.conversation-card {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  border: 1px solid #e4e9f1;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfe;
+  color: #172033;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.conversation-card.active {
+  border-color: #8fb4ee;
+  background: #f4f8ff;
+}
+
+.conversation-card span {
+  font-weight: 700;
+}
+
+.conversation-card small {
+  color: #647084;
+}
+
+.history-messages {
+  max-height: 64vh;
 }
 
 .upload-controls,
@@ -447,5 +542,9 @@ a {
 
   .message-bubble {
     max-width: 94%;
+  }
+
+  .history-layout {
+    grid-template-columns: 1fr;
   }
 }

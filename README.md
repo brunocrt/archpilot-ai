@@ -111,6 +111,13 @@ archpilot-ai/
 
    The API will be available at [http://localhost:8000](http://localhost:8000) and the web UI at [http://localhost:3000](http://localhost:3000).
 
+## Chat features
+
+- `/chat/query` returns the existing JSON answer response for compatibility.
+- `/chat/query/stream` streams answer deltas as server-sent events for the web chat UI.
+- `/chat/conversations` and `/chat/conversations/{id}` expose persisted conversation history.
+- The web UI renders basic markdown in answers and turns cited chunk IDs into numbered citation cards.
+
 ## Contributing
 
 This project is intended as a reference implementation and learning exercise. Feel free to extend or adapt it to your own needs.  Contributions and suggestions are welcome!

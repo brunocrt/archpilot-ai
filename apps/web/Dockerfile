@@ -13,6 +13,8 @@ RUN npm run build
 FROM node:18-alpine AS runner
 WORKDIR /app/apps/web
 ENV NODE_ENV=production
-COPY --from=builder /app/apps/web ./
+ENV HOSTNAME=0.0.0.0
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./.next/static
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

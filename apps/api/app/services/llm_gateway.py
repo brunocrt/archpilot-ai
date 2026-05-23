@@ -8,7 +8,9 @@ key is configured, the gateway will return a fallback response.
 from __future__ import annotations
 
 import logging
+import json
 import re
+from typing import AsyncIterator
 
 import httpx
 
@@ -249,3 +251,64 @@ class LLMGateway:
             except Exception as exc:  # broad catch OK for logging
                 logger.exception("LLM request failed: %s", exc)
                 return "There was an error contacting the language model service."
+
+    async def ask_stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream response text from the configured provider when supported."""
+        runtime_settings = llm_settings_store.get()
+        if runtime_settings.provider == "openai" and runtime_settings.api_key:
+            async for delta in self._ask_openai_stream(
+                prompt,
+                api_key=runtime_settings.api_key,
+                model=runtime_settings.model,
+            ):
+                yield delta
+            return
+
+        answer = self._fallback_answer(prompt)
+        for chunk in self._chunk_text(answer):
+            yield chunk
+
+    def _chunk_text(self, text: str, size: int = 24) -> list[str]:
+        words = text.split(" ")
+        chunks: list[str] = []
+        for index in range(0, len(words), size):
+            chunk = " ".join(words[index:index + size])
+            if index + size < len(words):
+                chunk += " "
+            chunks.append(chunk)
+        return chunks
+
+    async def _ask_openai_stream(self, prompt: str, api_key: str, model: str) -> AsyncIterator[str]:
+        """Stream text deltas from OpenAI's Chat API."""
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.2,
+            "max_tokens": 512,
+            "stream": True,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream("POST", url, json=payload, headers=headers) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data = line.removeprefix("data: ").strip()
+                        if data == "[DONE]":
+                            break
+                        payload = json.loads(data)
+                        delta = payload["choices"][0].get("delta", {}).get("content")
+                        if delta:
+                            yield delta
+        except Exception as exc:  # broad catch OK for logging
+            logger.exception("Streaming LLM request failed: %s", exc)
+            yield "There was an error contacting the language model service."
