@@ -1,13 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { createProject, listProjects, Project, uploadDocument } from '../lib/api';
 
+const ACCEPTED_TYPES = new Set([
+  'application/json',
+  'application/pdf',
+  'text/markdown',
+  'text/plain',
+]);
+const ACCEPTED_EXTENSIONS = ['.json', '.md', '.markdown', '.pdf', '.txt'];
+
 export default function UploadPanel() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
   const [creatingProject, setCreatingProject] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<string[]>([]);
 
   useEffect(() => {
     listProjects()
@@ -37,16 +47,45 @@ export default function UploadPanel() {
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
-    const file = files[0];
+    const selectedFiles = Array.from(files);
+    const validFiles = selectedFiles.filter(isAcceptedFile);
+    const rejectedFiles = selectedFiles.filter((file) => !isAcceptedFile(file));
+    event.target.value = '';
     setStatus(null);
     setError(null);
-    try {
-      const res = await uploadDocument(file, projectId || undefined);
-      const project = projects.find((item) => item.id === res.project_id);
-      setStatus(`Uploaded ${res.filename}${project ? ` to ${project.name}` : ''} successfully.`);
-    } catch (err) {
-      setError('Upload failed');
+    setResults([]);
+    if (rejectedFiles.length > 0) {
+      setError(`Skipped unsupported files: ${rejectedFiles.map((file) => file.name).join(', ')}`);
     }
+    if (validFiles.length === 0) return;
+    setUploading(true);
+    const project = projects.find((item) => item.id === projectId);
+    const uploaded: string[] = [];
+    const failed: string[] = [];
+    try {
+      for (const file of validFiles) {
+        try {
+          const res = await uploadDocument(file, projectId || undefined);
+          uploaded.push(res.filename);
+        } catch (err) {
+          failed.push(file.name);
+        }
+      }
+      if (uploaded.length > 0) {
+        setStatus(`Uploaded ${uploaded.length} file${uploaded.length === 1 ? '' : 's'}${project ? ` to ${project.name}` : ''}.`);
+        setResults(uploaded);
+      }
+      if (failed.length > 0) {
+        setError(`Failed to upload: ${failed.join(', ')}`);
+      }
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function isAcceptedFile(file: File) {
+    const filename = file.name.toLowerCase();
+    return ACCEPTED_TYPES.has(file.type) || ACCEPTED_EXTENSIONS.some((extension) => filename.endsWith(extension));
   }
 
   return (
@@ -77,10 +116,23 @@ export default function UploadPanel() {
           </button>
         </form>
 
-        <input type="file" onChange={handleUpload} />
+        <input
+          type="file"
+          accept=".txt,.md,.markdown,.json,.pdf,text/plain,text/markdown,application/json,application/pdf"
+          multiple
+          onChange={handleUpload}
+          disabled={uploading}
+        />
       </div>
       {status && <p className="form-success">{status}</p>}
       {error && <p className="form-error">{error}</p>}
+      {results.length > 0 && (
+        <ul className="upload-results">
+          {results.map((filename) => (
+            <li key={filename}>{filename}</li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

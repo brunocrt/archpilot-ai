@@ -39,10 +39,7 @@ class LLMGateway:
         context = prompt.split("Context:", maxsplit=1)[-1].strip()
         chunks = self._parse_context_chunks(context)
         if not chunks:
-            return (
-                "No LLM provider is configured, and there was no retrieved context "
-                "available to answer from."
-            )
+            return "I do not have enough retrieved context to answer that question."
 
         terms = self._question_terms(question)
         matches: list[tuple[int, str, str]] = []
@@ -59,11 +56,12 @@ class LLMGateway:
             ]
 
         matches.sort(key=lambda item: item[0], reverse=True)
-        evidence = " ".join(f"{sentence} [{chunk_id}]" for _, chunk_id, sentence in matches[:3])
-        return (
-            "No LLM provider is configured, so this is an extractive answer from "
-            f"retrieved context: {evidence}"
+        matches = self._deduplicate_matches(matches)
+        evidence = " ".join(
+            f"{self._first_excerpt(sentence, max_length=220)} [{chunk_id}]"
+            for _, chunk_id, sentence in matches[:3]
         )
+        return f"Based on the retrieved architecture context: {evidence}"
 
     def _extract_section(self, text: str, start_marker: str, end_marker: str) -> str:
         if start_marker not in text:
@@ -93,6 +91,8 @@ class LLMGateway:
         return [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", content) if sentence.strip()]
 
     def _sentence_score(self, sentence: str, terms: set[str], question: str) -> int:
+        if len(sentence.split()) < 5:
+            return 0
         lower_sentence = sentence.lower()
         score = sum(1 for term in terms if term in lower_sentence)
         if question.lower().startswith("why"):
@@ -102,14 +102,35 @@ class LLMGateway:
 
     def _clean_context(self, content: str) -> str:
         lines = []
+        in_code_block = False
         for line in content.splitlines():
             stripped = line.strip()
+            if stripped.startswith("```"):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
             if not stripped or stripped.startswith("#") or stripped in {"Accepted", "Context", "Decision", "Status"}:
                 continue
             if stripped.startswith("Date:"):
                 continue
+            if stripped.endswith(":") and len(stripped.split()) <= 4:
+                continue
+            if stripped.startswith("|") or set(stripped) <= {"|", "-", "+", " "}:
+                continue
             lines.append(stripped.lstrip("-* "))
         return " ".join(lines)
+
+    def _deduplicate_matches(self, matches: list[tuple[int, str, str]]) -> list[tuple[int, str, str]]:
+        seen: set[str] = set()
+        unique_matches = []
+        for score, chunk_id, sentence in matches:
+            key = re.sub(r"[^a-z0-9]+", " ", sentence.lower()).strip()[:120]
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_matches.append((score, chunk_id, sentence))
+        return unique_matches
 
     def _first_excerpt(self, content: str, max_length: int = 280) -> str:
         excerpt = " ".join(content.split())
