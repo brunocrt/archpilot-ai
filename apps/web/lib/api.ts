@@ -6,6 +6,9 @@ export interface DocumentUploadResponse {
 
 export interface RetrievedChunk {
   chunk_id: string;
+  document_id: string;
+  document_filename: string;
+  chunk_index: number;
   score?: number;
   content: string;
 }

@@ -35,41 +35,42 @@ export default function ChatPanel() {
   }
 
   return (
-    <div className="p-4 bg-white rounded-md border shadow">
-      <h2 className="text-lg font-semibold mb-4">Ask the Copilot</h2>
-      <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+    <section className="chat-panel">
+      <div className="panel-heading">
+        <h2>Ask the Copilot</h2>
+        <p>Grounded answers from uploaded architecture documents.</p>
+      </div>
+      <div className="message-list">
         {messages.map((msg, idx) => (
-          <div key={idx} className={msg.role === 'user' ? 'text-right' : 'text-left'}>
+          <div key={idx} className={msg.role === 'user' ? 'message-row user' : 'message-row assistant'}>
             <div
               className={
                 msg.role === 'user'
-                  ? 'inline-block bg-blue-100 rounded-md px-3 py-2'
-                  : 'inline-block bg-gray-100 rounded-md px-3 py-2'
+                  ? 'message-bubble user'
+                  : 'message-bubble assistant'
               }
             >
-              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              <p>{msg.content}</p>
             </div>
           </div>
         ))}
       </div>
-      <div className="mt-4">
+      <div className="composer">
         <textarea
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          className="w-full p-2 border rounded-md"
           rows={3}
           placeholder="Ask a question about your architecture..."
         />
         <button
           onClick={sendQuestion}
           disabled={loading}
-          className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md"
         >
           {loading ? 'Asking...' : 'Ask'}
         </button>
-        {error && <p className="mt-2 text-red-600 text-sm">{error}</p>}
+        {error && <p className="form-error">{error}</p>}
       </div>
       {sources && sources.length > 0 && <SourcePanel sources={sources} />}
-    </div>
+    </section>
   );
 }

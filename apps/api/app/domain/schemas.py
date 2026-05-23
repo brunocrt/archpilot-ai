@@ -50,6 +50,9 @@ class ChatQuery(BaseModel):
 
 class RetrievedChunk(BaseModel):
     chunk_id: str
+    document_id: str
+    document_filename: str
+    chunk_index: int
     score: Optional[float] = None
     content: str
 

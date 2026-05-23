@@ -4,8 +4,8 @@ import UploadPanel from '../../components/UploadPanel';
 
 export default function UploadPage() {
   return (
-    <div className="max-w-3xl mx-auto mt-8">
+    <main className="page-narrow">
       <UploadPanel />
-    </div>
+    </main>
   );
 }

@@ -9,11 +9,11 @@ table stores user feedback on answers.
 """
 import uuid
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import declarative_base, relationship
+from pgvector.sqlalchemy import Vector
 
 
 Base = declarative_base()
@@ -37,7 +37,7 @@ class DocumentChunk(Base):
     document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
-    embedding = Column(JSONB, nullable=True)  # storing embedding as JSON array for simplicity
+    embedding = Column(Vector(1536), nullable=True)
     chunk_metadata = Column("metadata", JSONB, nullable=True)
 
     document = relationship("Document", back_populates="chunks")

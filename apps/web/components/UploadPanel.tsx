@@ -20,11 +20,14 @@ export default function UploadPanel() {
   }
 
   return (
-    <div className="p-4 bg-white rounded-md border shadow">
-      <h2 className="text-lg font-semibold mb-2">Upload Document</h2>
+    <section className="upload-panel">
+      <div className="panel-heading">
+        <h2>Upload Document</h2>
+        <p>Add text, markdown, JSON, or PDF files to the knowledge base.</p>
+      </div>
       <input type="file" onChange={handleUpload} />
-      {status && <p className="mt-2 text-green-600 text-sm">{status}</p>}
-      {error && <p className="mt-2 text-red-600 text-sm">{error}</p>}
-    </div>
+      {status && <p className="form-success">{status}</p>}
+      {error && <p className="form-error">{error}</p>}
+    </section>
   );
 }

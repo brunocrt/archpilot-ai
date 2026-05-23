@@ -3,9 +3,13 @@ import React from 'react';
 
 export default function HistoryPage() {
   return (
-    <div className="max-w-3xl mx-auto mt-8 p-4 bg-white rounded-md border shadow">
-      <h2 className="text-lg font-semibold mb-2">Conversation History</h2>
-      <p className="text-sm text-gray-600">Conversation history display is not implemented yet.</p>
-    </div>
+    <main className="page-narrow">
+      <section className="upload-panel">
+        <div className="panel-heading">
+          <h2>Conversation History</h2>
+          <p>Conversation history display is not implemented yet.</p>
+        </div>
+      </section>
+    </main>
   );
 }

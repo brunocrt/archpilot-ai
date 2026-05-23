@@ -14,29 +14,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        style={{
-          fontFamily: "Arial, sans-serif",
-          background: "#f5f5f5",
-          margin: 0,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1100px",
-            margin: "0 auto",
-            padding: "20px",
-          }}
-        >
-          <header style={{ marginBottom: "30px" }}>
-            <h1>ArchPilot AI</h1>
-            <p>Enterprise Architecture Copilot</p>
+      <body>
+        <div className="app-shell">
+          <header className="app-header">
+            <div>
+              <h1>ArchPilot AI</h1>
+              <p>Enterprise Architecture Copilot</p>
+            </div>
 
-            <nav style={{ marginTop: "10px" }}>
-              <Link href="/" style={{ marginRight: "15px" }}>
+            <nav className="app-nav">
+              <Link href="/">
                 Chat
               </Link>
-              <Link href="/upload" style={{ marginRight: "15px" }}>
+              <Link href="/upload">
                 Upload
               </Link>
               <Link href="/history">History</Link>

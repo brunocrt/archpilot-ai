@@ -74,7 +74,12 @@ async def query_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) -> 
     for chunk, score in retrieved:
         retrieved_chunks.append(
             schemas.RetrievedChunk(
-                chunk_id=str(chunk.id), score=score, content=chunk.content
+                chunk_id=str(chunk.id),
+                document_id=str(chunk.document_id),
+                document_filename=chunk.document.filename,
+                chunk_index=chunk.chunk_index,
+                score=score,
+                content=chunk.content,
             )
         )
 

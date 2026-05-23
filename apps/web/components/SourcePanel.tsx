@@ -8,15 +8,24 @@ interface Props {
 export default function SourcePanel({ sources }: Props) {
   if (!sources || sources.length === 0) return null;
   return (
-    <div className="mt-4 p-2 bg-gray-100 rounded-md">
-      <h3 className="font-semibold mb-2">Sources</h3>
-      <ul className="space-y-2 text-sm">
-        {sources.map((src) => (
-          <li key={src.chunk_id} className="border-b pb-2">
-            <span className="font-mono text-xs">[{src.chunk_id}]</span> {src.content.substring(0, 200)}...
+    <aside className="source-panel">
+      <div className="source-heading">
+        <h3>Citations</h3>
+        <span>{sources.length} retrieved</span>
+      </div>
+      <ul className="source-list">
+        {sources.map((src, index) => (
+          <li key={src.chunk_id} className="source-item">
+            <div className="source-meta">
+              <span className="source-number">[{index + 1}]</span>
+              <span>{src.document_filename}</span>
+              <span>Chunk {src.chunk_index + 1}</span>
+              {typeof src.score === 'number' && <span>{Math.round(src.score * 100)}%</span>}
+            </div>
+            <p>{src.content.substring(0, 320)}{src.content.length > 320 ? '...' : ''}</p>
           </li>
         ))}
       </ul>
-    </div>
+    </aside>
   );
 }
