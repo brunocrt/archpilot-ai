@@ -11,7 +11,6 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
 from .config import settings
-from .domain.models import Base
 
 
 # SQLAlchemy engine and session factory
@@ -20,14 +19,9 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def init_db() -> None:
-    """Create database tables for the application if they do not exist."""
+    """Verify database connectivity during application startup."""
     with engine.begin() as connection:
-        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-    Base.metadata.create_all(bind=engine)
-    with engine.begin() as connection:
-        connection.execute(
-            text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id)")
-        )
+        connection.execute(text("SELECT 1"))
 
 
 @contextmanager

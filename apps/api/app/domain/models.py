@@ -23,9 +23,9 @@ class Document(Base):
     __tablename__ = "documents"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
-    filename = Column(String, nullable=False)
-    content_type = Column(String, nullable=True)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True, index=True)
+    filename = Column(String, nullable=False, index=True)
+    content_type = Column(String, nullable=True, index=True)
     status = Column(String, nullable=False, default="processed")
     uploaded_at = Column(DateTime, default=datetime.utcnow)
     project = relationship("Project", back_populates="documents")
@@ -50,7 +50,7 @@ class DocumentChunk(Base):
     __tablename__ = "document_chunks"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False, index=True)
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
     embedding = Column(Vector(1536), nullable=True)
@@ -72,7 +72,7 @@ class Message(Base):
     __tablename__ = "messages"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False, index=True)
     role = Column(String, nullable=False)  # 'user' or 'assistant'
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -86,8 +86,8 @@ class RetrievalLog(Base):
     __tablename__ = "retrieval_logs"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id"), nullable=False)
-    chunk_id = Column(UUID(as_uuid=True), ForeignKey("document_chunks.id"), nullable=False)
+    message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id"), nullable=False, index=True)
+    chunk_id = Column(UUID(as_uuid=True), ForeignKey("document_chunks.id"), nullable=False, index=True)
     similarity_score = Column(Float, nullable=True)
 
     message = relationship("Message", back_populates="retrieval_logs")

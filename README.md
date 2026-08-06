@@ -117,6 +117,37 @@ archpilot-ai/
    wsl.exe -d Ubuntu -- bash -lc "cd /mnt/c/Users/bruno/github/archpilot-ai && docker compose -f infra/docker-compose.yml up --build"
    ```
 
+## Database migrations
+
+The API uses Alembic for schema management. The API container runs `alembic upgrade head` before starting FastAPI, so a clean Docker Compose database is initialized automatically.
+
+Run migrations manually:
+
+```bash
+docker compose -f infra/docker-compose.yml run --rm api alembic upgrade head
+```
+
+Rollback the latest migration in a local/dev database. The baseline rollback removes the initial schema tables, so do not run it against data you need to keep:
+
+```bash
+docker compose -f infra/docker-compose.yml run --rm api alembic downgrade -1
+```
+
+Reset the local database volume and rebuild:
+
+```bash
+docker compose -f infra/docker-compose.yml down -v
+docker compose -f infra/docker-compose.yml up --build
+```
+
+From Windows using Docker Engine inside WSL Ubuntu:
+
+```powershell
+wsl.exe -d Ubuntu -- bash -lc "cd /mnt/c/Users/bruno/github/archpilot-ai && docker compose -f infra/docker-compose.yml run --rm api alembic upgrade head"
+```
+
+The baseline migration enables the PostgreSQL `vector` extension and creates an HNSW cosine index on `document_chunks.embedding`. HNSW was chosen over IVFFlat because it works well for incremental inserts without a separate training step; the trade-off is higher memory usage and index build cost.
+
 ## Chat features
 
 - `/chat/query` returns the existing JSON answer response for compatibility.
