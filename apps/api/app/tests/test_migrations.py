@@ -4,6 +4,7 @@ from pathlib import Path
 
 API_ROOT = Path(__file__).resolve().parents[2]
 BASELINE_MIGRATION = API_ROOT / "migrations" / "versions" / "0001_baseline_schema.py"
+DIAGNOSTICS_MIGRATION = API_ROOT / "migrations" / "versions" / "0002_retrieval_diagnostics.py"
 
 
 class MigrationTests(unittest.TestCase):
@@ -34,6 +35,23 @@ class MigrationTests(unittest.TestCase):
         for index_name in expected_indexes:
             with self.subTest(index_name=index_name):
                 self.assertIn(index_name, migration_source)
+
+    def test_diagnostics_migration_adds_persistence_fields(self) -> None:
+        migration_source = DIAGNOSTICS_MIGRATION.read_text()
+        expected_columns = [
+            "retrieval_signal",
+            "rank",
+            "retrieval_latency_ms",
+            "applied_filters",
+            "retrieval_mode",
+            "embedding_model",
+            "llm_provider",
+            "llm_model",
+        ]
+
+        for column_name in expected_columns:
+            with self.subTest(column_name=column_name):
+                self.assertIn(column_name, migration_source)
 
 
 if __name__ == "__main__":

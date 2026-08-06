@@ -8,6 +8,7 @@ returns an answer with citations.
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from pathlib import Path
 from typing import List
@@ -20,6 +21,8 @@ from ..domain import schemas
 from ..repositories.conversation_repository import ConversationRepository
 from ..services.retrieval_service import RetrievalService
 from ..services.llm_gateway import LLMGateway
+from ..services.llm_settings import llm_settings_store
+from ..utils.embeddings import DEFAULT_EMBEDDING_MODEL
 
 
 router = APIRouter()
@@ -113,16 +116,61 @@ def retrieval_diagnostics(
     payload: schemas.ChatQuery,
     project_id: uuid.UUID | None,
     retrieved_chunks: List[schemas.RetrievedChunk],
+    retrieval_latency_ms: float | None = None,
 ) -> schemas.RetrievalDiagnostics:
     signals = {chunk.retrieval_signal for chunk in retrieved_chunks if chunk.retrieval_signal}
     mode = "hybrid" if "hybrid" in signals else next(iter(signals), "none")
+    runtime_settings = llm_settings_store.get()
     return schemas.RetrievalDiagnostics(
         mode=mode,
         project_id=str(project_id) if project_id else None,
         document_filename=payload.document_filename,
         content_type=payload.content_type,
         top_k=payload.top_k,
+        retrieval_latency_ms=retrieval_latency_ms,
+        llm_provider=runtime_settings.provider,
+        llm_model=runtime_settings.model,
+        embedding_model=DEFAULT_EMBEDDING_MODEL,
     )
+
+
+def applied_filters(payload: schemas.ChatQuery, project_id: uuid.UUID | None) -> dict[str, str]:
+    filters: dict[str, str] = {}
+    if project_id:
+        filters["project_id"] = str(project_id)
+    if payload.document_filename:
+        filters["document_filename"] = payload.document_filename
+    if payload.content_type:
+        filters["content_type"] = payload.content_type
+    return filters
+
+
+def persist_retrieval_diagnostics(
+    conv_repo: ConversationRepository,
+    assistant_message_id: uuid.UUID,
+    payload: schemas.ChatQuery,
+    project_id: uuid.UUID | None,
+    retrieved_chunks: List[schemas.RetrievedChunk],
+    diagnostics: schemas.RetrievalDiagnostics,
+) -> None:
+    filters = applied_filters(payload, project_id)
+    entries = [
+        {
+            "chunk_id": uuid.UUID(chunk.chunk_id),
+            "similarity_score": chunk.score,
+            "retrieval_signal": chunk.retrieval_signal,
+            "rank": rank,
+            "retrieval_latency_ms": diagnostics.retrieval_latency_ms,
+            "applied_filters": filters,
+            "retrieval_mode": diagnostics.mode,
+            "embedding_model": diagnostics.embedding_model,
+            "llm_provider": diagnostics.llm_provider,
+            "llm_model": diagnostics.llm_model,
+        }
+        for rank, chunk in enumerate(retrieved_chunks, start=1)
+    ]
+    if entries:
+        conv_repo.add_retrieval_logs(assistant_message_id, entries)
 
 
 def sse_event(event: str, data) -> str:
@@ -143,6 +191,7 @@ async def query_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) -> 
     conv_repo.add_message(conversation.id, role="user", content=payload.question)
 
     # Retrieve relevant chunks
+    retrieval_started = time.perf_counter()
     retrieved_chunks = await retrieve_chunks(
         payload.question,
         payload.top_k,
@@ -151,7 +200,8 @@ async def query_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) -> 
         payload.document_filename,
         payload.content_type,
     )
-    diagnostics = retrieval_diagnostics(payload, project_uuid, retrieved_chunks)
+    retrieval_latency_ms = (time.perf_counter() - retrieval_started) * 1000
+    diagnostics = retrieval_diagnostics(payload, project_uuid, retrieved_chunks, retrieval_latency_ms)
 
     # Build prompt using template
     prompt = build_prompt(payload.question, retrieved_chunks)
@@ -161,7 +211,15 @@ async def query_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) -> 
     answer_text = await llm.ask(prompt)
 
     # Persist assistant message
-    conv_repo.add_message(conversation.id, role="assistant", content=answer_text)
+    assistant_message = conv_repo.add_message(conversation.id, role="assistant", content=answer_text)
+    persist_retrieval_diagnostics(
+        conv_repo,
+        assistant_message.id,
+        payload,
+        project_uuid,
+        retrieved_chunks,
+        diagnostics,
+    )
 
     # Build response
     return schemas.AnswerResponse(
@@ -184,6 +242,7 @@ async def stream_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) ->
     project_uuid = parse_project_id(payload.project_id)
     conv_repo.add_message(conversation.id, role="user", content=payload.question)
 
+    retrieval_started = time.perf_counter()
     retrieved_chunks = await retrieve_chunks(
         payload.question,
         payload.top_k,
@@ -192,7 +251,8 @@ async def stream_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) ->
         payload.document_filename,
         payload.content_type,
     )
-    diagnostics = retrieval_diagnostics(payload, project_uuid, retrieved_chunks)
+    retrieval_latency_ms = (time.perf_counter() - retrieval_started) * 1000
+    diagnostics = retrieval_diagnostics(payload, project_uuid, retrieved_chunks, retrieval_latency_ms)
     prompt = build_prompt(payload.question, retrieved_chunks)
 
     async def events():
@@ -210,7 +270,15 @@ async def stream_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) ->
             yield sse_event("delta", {"text": delta})
 
         answer_text = "".join(answer_parts)
-        conv_repo.add_message(conversation.id, role="assistant", content=answer_text)
+        assistant_message = conv_repo.add_message(conversation.id, role="assistant", content=answer_text)
+        persist_retrieval_diagnostics(
+            conv_repo,
+            assistant_message.id,
+            payload,
+            project_uuid,
+            retrieved_chunks,
+            diagnostics,
+        )
         yield sse_event(
             "done",
             {
@@ -221,6 +289,51 @@ async def stream_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) ->
         )
 
     return StreamingResponse(events(), media_type="text/event-stream")
+
+
+@router.get("/messages/{message_id}/diagnostics", response_model=schemas.MessageDiagnosticsResponse)
+def get_message_diagnostics(message_id: str, db=Depends(get_db_session)) -> schemas.MessageDiagnosticsResponse:
+    """Return persisted retrieval diagnostics for an assistant answer."""
+    conv_repo = ConversationRepository(db)
+    try:
+        message_uuid = uuid.UUID(message_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid message_id")
+
+    answer = conv_repo.get_message(message_uuid)
+    if answer is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if answer.role != "assistant":
+        raise HTTPException(status_code=400, detail="Diagnostics are only available for assistant messages")
+
+    logs = conv_repo.list_retrieval_logs(answer.id)
+    first_log = logs[0] if logs else None
+    question = conv_repo.get_previous_user_message(answer)
+    return schemas.MessageDiagnosticsResponse(
+        question=question,
+        answer=answer,
+        selected_chunks=[
+            schemas.RetrievalDiagnosticsChunk(
+                chunk_id=log.chunk.id,
+                document_id=log.chunk.document_id,
+                document_filename=log.chunk.document.filename,
+                document_project_name=log.chunk.document.project_name,
+                document_content_type=log.chunk.document.content_type,
+                chunk_index=log.chunk.chunk_index,
+                content=log.chunk.content,
+                score=log.similarity_score,
+                retrieval_signal=log.retrieval_signal,
+                rank=log.rank,
+            )
+            for log in logs
+        ],
+        filters=first_log.applied_filters if first_log and first_log.applied_filters else {},
+        retrieval_mode=first_log.retrieval_mode if first_log else None,
+        retrieval_latency_ms=first_log.retrieval_latency_ms if first_log else None,
+        embedding_model=first_log.embedding_model if first_log else None,
+        llm_provider=first_log.llm_provider if first_log else None,
+        llm_model=first_log.llm_model if first_log else None,
+    )
 
 
 @router.get("/conversations", response_model=List[schemas.ConversationSummary])

@@ -17,9 +17,10 @@ from ..config import settings
 
 
 logger = logging.getLogger(__name__)
+DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002"
 
 
-async def get_embedding(text: str, model: str = "text-embedding-ada-002") -> Optional[List[float]]:
+async def get_embedding(text: str, model: str = DEFAULT_EMBEDDING_MODEL) -> Optional[List[float]]:
     """Generate an embedding for the given text.
 
     :param text: Text to embed

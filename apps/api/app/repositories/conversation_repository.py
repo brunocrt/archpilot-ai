@@ -8,6 +8,7 @@ assistant messages.
 from typing import List, Optional
 from uuid import UUID
 
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from ..domain import models
@@ -36,6 +37,43 @@ class ConversationRepository:
         self.db.commit()
         self.db.refresh(message)
         return message
+
+    def add_retrieval_logs(
+        self,
+        message_id: UUID,
+        entries: list[dict],
+    ) -> List[models.RetrievalLog]:
+        logs = [models.RetrievalLog(message_id=message_id, **entry) for entry in entries]
+        self.db.add_all(logs)
+        self.db.commit()
+        for log in logs:
+            self.db.refresh(log)
+        return logs
+
+    def get_message(self, message_id: UUID) -> Optional[models.Message]:
+        return self.db.query(models.Message).filter(models.Message.id == message_id).first()
+
+    def get_previous_user_message(self, message: models.Message) -> Optional[models.Message]:
+        return (
+            self.db.query(models.Message)
+            .filter(
+                and_(
+                    models.Message.conversation_id == message.conversation_id,
+                    models.Message.role == "user",
+                    models.Message.created_at <= message.created_at,
+                )
+            )
+            .order_by(models.Message.created_at.desc())
+            .first()
+        )
+
+    def list_retrieval_logs(self, message_id: UUID) -> List[models.RetrievalLog]:
+        return (
+            self.db.query(models.RetrievalLog)
+            .filter(models.RetrievalLog.message_id == message_id)
+            .order_by(models.RetrievalLog.rank)
+            .all()
+        )
 
     def list_messages(self, conversation_id: UUID) -> List[models.Message]:
         return (

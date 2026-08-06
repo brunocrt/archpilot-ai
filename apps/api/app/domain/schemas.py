@@ -5,7 +5,7 @@ Defines request and response models for each entity.  Response models use
 `orm_mode=True` to allow conversion from SQLAlchemy objects.
 """
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -85,6 +85,10 @@ class RetrievalDiagnostics(BaseModel):
     document_filename: Optional[str] = None
     content_type: Optional[str] = None
     top_k: int
+    retrieval_latency_ms: Optional[float] = None
+    llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
+    embedding_model: Optional[str] = None
 
 
 class AnswerResponse(BaseModel):
@@ -118,6 +122,31 @@ class ConversationDetail(BaseModel):
     title: Optional[str] = None
     created_at: datetime
     messages: List[MessageResponse]
+
+
+class RetrievalDiagnosticsChunk(BaseModel):
+    chunk_id: UUID
+    document_id: UUID
+    document_filename: str
+    document_project_name: Optional[str] = None
+    document_content_type: Optional[str] = None
+    chunk_index: int
+    content: str
+    score: Optional[float] = None
+    retrieval_signal: Optional[str] = None
+    rank: Optional[int] = None
+
+
+class MessageDiagnosticsResponse(BaseModel):
+    question: Optional[MessageResponse] = None
+    answer: MessageResponse
+    selected_chunks: List[RetrievalDiagnosticsChunk]
+    filters: dict[str, Any] = Field(default_factory=dict)
+    retrieval_mode: Optional[str] = None
+    retrieval_latency_ms: Optional[float] = None
+    embedding_model: Optional[str] = None
+    llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
 
 
 class LLMSettingsResponse(BaseModel):

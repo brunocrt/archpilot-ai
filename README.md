@@ -153,9 +153,10 @@ The baseline migration enables the PostgreSQL `vector` extension and creates an 
 - `/chat/query` returns the existing JSON answer response for compatibility.
 - `/chat/query/stream` streams answer deltas as server-sent events for the web chat UI.
 - `/chat/conversations` and `/chat/conversations/{id}` expose persisted conversation history.
+- `/chat/messages/{message_id}/diagnostics` returns persisted retrieval diagnostics for an assistant answer.
 - The web UI renders basic markdown in answers and turns cited chunk IDs into numbered citation cards.
 - Retrieval uses pgvector when query embeddings are available, blends vector and keyword candidates, reranks the combined set, and supports `project_id`, `document_filename`, and `content_type` filters on chat requests.
-- Chat responses include retrieval diagnostics: retrieval mode, applied filters, source content type, project name, and source signal (`vector`, `keyword`, `hybrid`, or `latest`).
+- Chat responses include retrieval diagnostics: retrieval mode, applied filters, source content type, project name, source signal (`vector`, `keyword`, `hybrid`, or `latest`), retrieval latency, and provider/model metadata.
 
 ## Contributing
 
