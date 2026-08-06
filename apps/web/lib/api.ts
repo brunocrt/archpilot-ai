@@ -26,9 +26,20 @@ export interface RetrievedChunk {
   chunk_id: string;
   document_id: string;
   document_filename: string;
+  document_project_name?: string;
+  document_content_type?: string;
   chunk_index: number;
   score?: number;
+  retrieval_signal?: string;
   content: string;
+}
+
+export interface RetrievalDiagnostics {
+  mode: string;
+  project_id?: string;
+  document_filename?: string;
+  content_type?: string;
+  top_k: number;
 }
 
 export interface AnswerResponse {
@@ -36,6 +47,7 @@ export interface AnswerResponse {
   answer: string;
   sources: RetrievedChunk[];
   retrieved_chunks: RetrievedChunk[];
+  retrieval?: RetrievalDiagnostics;
 }
 
 export interface MessageResponse {
@@ -154,6 +166,7 @@ export async function chatQueryStream(
     contentType?: string;
     onConversation?: (conversationId: string) => void;
     onSources?: (sources: RetrievedChunk[]) => void;
+    onRetrieval?: (retrieval: RetrievalDiagnostics) => void;
     onDelta?: (text: string) => void;
     onDone?: (response: AnswerResponse) => void;
   },
@@ -177,6 +190,7 @@ export async function chatQueryStream(
   let buffer = '';
   let conversationId = handlers.conversationId || '';
   let sources: RetrievedChunk[] = [];
+  let retrieval: RetrievalDiagnostics | undefined;
 
   while (true) {
     const { value, done } = await reader.read();
@@ -193,14 +207,19 @@ export async function chatQueryStream(
       } else if (parsed.event === 'sources') {
         sources = parsed.data;
         handlers.onSources?.(sources);
+      } else if (parsed.event === 'retrieval') {
+        retrieval = parsed.data;
+        handlers.onRetrieval?.(retrieval);
       } else if (parsed.event === 'delta') {
         handlers.onDelta?.(parsed.data.text);
       } else if (parsed.event === 'done') {
+        retrieval = parsed.data.retrieval || retrieval;
         handlers.onDone?.({
           conversation_id: parsed.data.conversation_id || conversationId,
           answer: parsed.data.answer,
           sources,
           retrieved_chunks: sources,
+          retrieval,
         });
       }
     }

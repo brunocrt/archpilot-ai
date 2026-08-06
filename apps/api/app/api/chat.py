@@ -95,15 +95,34 @@ async def retrieve_chunks(
     )
     return [
         schemas.RetrievedChunk(
-            chunk_id=str(chunk.id),
-            document_id=str(chunk.document_id),
-            document_filename=chunk.document.filename,
-            chunk_index=chunk.chunk_index,
-            score=score,
-            content=chunk.content,
+            chunk_id=str(match.chunk.id),
+            document_id=str(match.chunk.document_id),
+            document_filename=match.chunk.document.filename,
+            document_project_name=match.chunk.document.project_name,
+            document_content_type=match.chunk.document.content_type,
+            chunk_index=match.chunk.chunk_index,
+            score=match.score,
+            retrieval_signal=match.signal,
+            content=match.chunk.content,
         )
-        for chunk, score in retrieved
+        for match in retrieved
     ]
+
+
+def retrieval_diagnostics(
+    payload: schemas.ChatQuery,
+    project_id: uuid.UUID | None,
+    retrieved_chunks: List[schemas.RetrievedChunk],
+) -> schemas.RetrievalDiagnostics:
+    signals = {chunk.retrieval_signal for chunk in retrieved_chunks if chunk.retrieval_signal}
+    mode = "hybrid" if "hybrid" in signals else next(iter(signals), "none")
+    return schemas.RetrievalDiagnostics(
+        mode=mode,
+        project_id=str(project_id) if project_id else None,
+        document_filename=payload.document_filename,
+        content_type=payload.content_type,
+        top_k=payload.top_k,
+    )
 
 
 def sse_event(event: str, data) -> str:
@@ -132,6 +151,7 @@ async def query_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) -> 
         payload.document_filename,
         payload.content_type,
     )
+    diagnostics = retrieval_diagnostics(payload, project_uuid, retrieved_chunks)
 
     # Build prompt using template
     prompt = build_prompt(payload.question, retrieved_chunks)
@@ -149,6 +169,7 @@ async def query_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) -> 
         answer=answer_text,
         sources=retrieved_chunks,
         retrieved_chunks=retrieved_chunks,
+        retrieval=diagnostics,
     )
 
 
@@ -171,6 +192,7 @@ async def stream_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) ->
         payload.document_filename,
         payload.content_type,
     )
+    diagnostics = retrieval_diagnostics(payload, project_uuid, retrieved_chunks)
     prompt = build_prompt(payload.question, retrieved_chunks)
 
     async def events():
@@ -179,6 +201,7 @@ async def stream_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) ->
             "sources",
             [chunk.model_dump(mode="json") for chunk in retrieved_chunks],
         )
+        yield sse_event("retrieval", diagnostics.model_dump(mode="json"))
 
         llm = LLMGateway()
         answer_parts: list[str] = []
@@ -190,7 +213,11 @@ async def stream_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) ->
         conv_repo.add_message(conversation.id, role="assistant", content=answer_text)
         yield sse_event(
             "done",
-            {"conversation_id": str(conversation.id), "answer": answer_text},
+            {
+                "conversation_id": str(conversation.id),
+                "answer": answer_text,
+                "retrieval": diagnostics.model_dump(mode="json"),
+            },
         )
 
     return StreamingResponse(events(), media_type="text/event-stream")

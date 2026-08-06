@@ -71,9 +71,20 @@ class RetrievedChunk(BaseModel):
     chunk_id: str
     document_id: str
     document_filename: str
+    document_project_name: Optional[str] = None
+    document_content_type: Optional[str] = None
     chunk_index: int
     score: Optional[float] = None
+    retrieval_signal: Optional[str] = None
     content: str
+
+
+class RetrievalDiagnostics(BaseModel):
+    mode: str
+    project_id: Optional[str] = None
+    document_filename: Optional[str] = None
+    content_type: Optional[str] = None
+    top_k: int
 
 
 class AnswerResponse(BaseModel):
@@ -81,6 +92,7 @@ class AnswerResponse(BaseModel):
     answer: str
     sources: List[RetrievedChunk]
     retrieved_chunks: List[RetrievedChunk]
+    retrieval: Optional[RetrievalDiagnostics] = None
 
 
 class MessageResponse(BaseModel):

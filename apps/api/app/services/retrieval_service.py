@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import List, Tuple
+from dataclasses import dataclass
+from typing import List
 from uuid import UUID
 
 from sqlalchemy import or_
@@ -13,6 +14,13 @@ from ..domain import models
 from ..utils.embeddings import get_embedding
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RetrievalMatch:
+    chunk: models.DocumentChunk
+    score: float
+    signal: str
 
 
 class RetrievalService:
@@ -26,7 +34,7 @@ class RetrievalService:
         project_id: UUID | None = None,
         document_filename: str | None = None,
         content_type: str | None = None,
-    ) -> List[Tuple[models.DocumentChunk, float]]:
+    ) -> List[RetrievalMatch]:
         """Retrieve relevant chunks using hybrid vector and keyword signals."""
         candidate_limit = max(top_k * 8, 20)
         keyword_results = self._keyword_search(
@@ -55,7 +63,7 @@ class RetrievalService:
             .all()
         )
         vector_results = [
-            (chunk, max(0.0, 1.0 - float(chunk_distance)))
+            RetrievalMatch(chunk=chunk, score=max(0.0, 1.0 - float(chunk_distance)), signal="vector")
             for chunk, chunk_distance in rows
         ]
         return self._rerank(
@@ -71,7 +79,7 @@ class RetrievalService:
         project_id: UUID | None = None,
         document_filename: str | None = None,
         content_type: str | None = None,
-    ) -> List[Tuple[models.DocumentChunk, float]]:
+    ) -> List[RetrievalMatch]:
         terms = self._question_terms(question)
         if not terms:
             return []
@@ -98,7 +106,10 @@ class RetrievalService:
             reverse=True,
         )
         max_score = max((score for score, _ in ranked), default=1)
-        return [(chunk, score / max_score) for score, chunk in ranked[:top_k]]
+        return [
+            RetrievalMatch(chunk=chunk, score=score / max_score, signal="keyword")
+            for score, chunk in ranked[:top_k]
+        ]
 
     def _apply_filters(
         self,
@@ -121,48 +132,62 @@ class RetrievalService:
         project_id: UUID | None,
         document_filename: str | None,
         content_type: str | None,
-    ) -> List[Tuple[models.DocumentChunk, float]]:
+    ) -> List[RetrievalMatch]:
         query = self.db.query(models.DocumentChunk).join(models.DocumentChunk.document)
         query = self._apply_filters(query, project_id, document_filename, content_type)
         chunks = query.order_by(models.Document.uploaded_at.desc()).limit(top_k).all()
-        return [(chunk, 0.0) for chunk in chunks]
+        return [RetrievalMatch(chunk=chunk, score=0.0, signal="latest") for chunk in chunks]
 
     def _merge_results(
         self,
-        vector_results: List[Tuple[models.DocumentChunk, float]],
-        keyword_results: List[Tuple[models.DocumentChunk, float]],
-    ) -> List[Tuple[models.DocumentChunk, float]]:
+        vector_results: List[RetrievalMatch],
+        keyword_results: List[RetrievalMatch],
+    ) -> List[RetrievalMatch]:
         merged: dict[UUID, tuple[models.DocumentChunk, float, float]] = {}
-        for chunk, score in vector_results:
-            merged[chunk.id] = (chunk, score, 0.0)
-        for chunk, score in keyword_results:
-            current = merged.get(chunk.id, (chunk, 0.0, 0.0))
-            merged[chunk.id] = (chunk, current[1], score)
+        for match in vector_results:
+            merged[match.chunk.id] = (match.chunk, match.score, 0.0)
+        for match in keyword_results:
+            current = merged.get(match.chunk.id, (match.chunk, 0.0, 0.0))
+            merged[match.chunk.id] = (match.chunk, current[1], match.score)
         return [
-            (chunk, (vector_score * 0.65) + (keyword_score * 0.35))
+            RetrievalMatch(
+                chunk=chunk,
+                score=(vector_score * 0.65) + (keyword_score * 0.35),
+                signal=self._retrieval_signal(vector_score, keyword_score),
+            )
             for chunk, vector_score, keyword_score in merged.values()
         ]
+
+    def _retrieval_signal(self, vector_score: float, keyword_score: float) -> str:
+        if vector_score > 0 and keyword_score > 0:
+            return "hybrid"
+        if vector_score > 0:
+            return "vector"
+        return "keyword"
 
     def _rerank(
         self,
         question: str,
-        results: List[Tuple[models.DocumentChunk, float]],
+        results: List[RetrievalMatch],
         top_k: int,
-    ) -> List[Tuple[models.DocumentChunk, float]]:
+    ) -> List[RetrievalMatch]:
         terms = self._question_terms(question)
         ranked = [
-            (chunk, score + (self._keyword_score(question, terms, chunk) / 20.0))
-            for chunk, score in results
+            (match, match.score + (self._keyword_score(question, terms, match.chunk) / 20.0))
+            for match in results
         ]
         ranked.sort(
             key=lambda item: (
                 item[1],
-                item[0].document.uploaded_at,
-                -item[0].chunk_index,
+                item[0].chunk.document.uploaded_at,
+                -item[0].chunk.chunk_index,
             ),
             reverse=True,
         )
-        return [(chunk, min(score, 1.0)) for chunk, score in ranked[:top_k]]
+        return [
+            RetrievalMatch(chunk=match.chunk, score=min(score, 1.0), signal=match.signal)
+            for match, score in ranked[:top_k]
+        ]
 
     def _question_terms(self, question: str) -> list[str]:
         stop_words = {

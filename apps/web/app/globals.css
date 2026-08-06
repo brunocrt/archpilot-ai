@@ -152,6 +152,24 @@ a {
   text-decoration: none;
 }
 
+.retrieval-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.retrieval-summary span,
+.source-signal {
+  border: 1px solid #cfd7e3;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #fff;
+  color: #38445a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .message-bubble.user {
   background: #e5f0ff;
   border: 1px solid #c9ddfb;
@@ -166,6 +184,12 @@ a {
   display: grid;
   gap: 10px;
   margin-top: 16px;
+}
+
+.retrieval-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .composer textarea {
@@ -542,6 +566,10 @@ a {
 
   .message-bubble {
     max-width: 94%;
+  }
+
+  .retrieval-filters {
+    grid-template-columns: 1fr;
   }
 
   .history-layout {

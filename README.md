@@ -111,6 +111,12 @@ archpilot-ai/
 
    The API will be available at [http://localhost:8000](http://localhost:8000) and the web UI at [http://localhost:3000](http://localhost:3000).
 
+   From Windows with Docker Engine installed inside WSL Ubuntu, run:
+
+   ```powershell
+   wsl.exe -d Ubuntu -- bash -lc "cd /mnt/c/Users/bruno/github/archpilot-ai && docker compose -f infra/docker-compose.yml up --build"
+   ```
+
 ## Chat features
 
 - `/chat/query` returns the existing JSON answer response for compatibility.
@@ -118,6 +124,7 @@ archpilot-ai/
 - `/chat/conversations` and `/chat/conversations/{id}` expose persisted conversation history.
 - The web UI renders basic markdown in answers and turns cited chunk IDs into numbered citation cards.
 - Retrieval uses pgvector when query embeddings are available, blends vector and keyword candidates, reranks the combined set, and supports `project_id`, `document_filename`, and `content_type` filters on chat requests.
+- Chat responses include retrieval diagnostics: retrieval mode, applied filters, source content type, project name, and source signal (`vector`, `keyword`, `hybrid`, or `latest`).
 
 ## Contributing
 

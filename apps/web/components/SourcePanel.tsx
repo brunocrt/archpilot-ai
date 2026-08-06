@@ -27,8 +27,11 @@ export default function SourcePanel({ sources, answer = '' }: Props) {
             <div className="source-meta">
               <span className="source-number">[{index + 1}]</span>
               <strong>{src.document_filename}</strong>
+              {src.document_project_name && <span>{src.document_project_name}</span>}
+              {src.document_content_type && <span>{formatContentType(src.document_content_type)}</span>}
               <span>Chunk {src.chunk_index + 1}</span>
               {typeof src.score === 'number' && <span>{Math.round(src.score * 100)}%</span>}
+              {src.retrieval_signal && <span className="source-signal">{formatSignal(src.retrieval_signal)}</span>}
             </div>
             <div className="source-id">{src.chunk_id}</div>
             <p>{src.content.substring(0, 320)}{src.content.length > 320 ? '...' : ''}</p>
@@ -37,4 +40,24 @@ export default function SourcePanel({ sources, answer = '' }: Props) {
       </ul>
     </aside>
   );
+}
+
+function formatContentType(contentType: string): string {
+  const labels: Record<string, string> = {
+    'application/json': 'JSON',
+    'application/pdf': 'PDF',
+    'text/markdown': 'Markdown',
+    'text/plain': 'Text',
+  };
+  return labels[contentType] || contentType;
+}
+
+function formatSignal(signal: string): string {
+  const labels: Record<string, string> = {
+    hybrid: 'Hybrid',
+    keyword: 'Keyword',
+    latest: 'Latest',
+    vector: 'Vector',
+  };
+  return labels[signal] || signal;
 }
