@@ -4,7 +4,8 @@ This folder contains a minimal Next.js frontend for the ArchPilot AI project.  I
 
 * **Chat page** (`/`): ask questions against the knowledge base and view responses with citations.
 * **Upload page** (`/upload`): upload documents for ingestion.
-* **History page** (`/history`): list past conversations (future work).
+* **History page** (`/history`): list past conversations.
+* **Evaluations page** (`/evaluations`): create evaluation datasets and cases, run local checks, and review metrics.
 
 The frontend uses the `NEXT_PUBLIC_API_URL` environment variable to call the API.  When running via Docker Compose the API is available at `http://localhost:8000`.
 

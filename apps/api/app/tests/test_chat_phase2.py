@@ -1,9 +1,10 @@
 import unittest
 from uuid import uuid4
 
-from app.api.chat import build_prompt, persist_retrieval_diagnostics, retrieval_diagnostics
+from app.api.chat import persist_retrieval_diagnostics, retrieval_diagnostics
 from app.domain.schemas import ChatQuery, RetrievedChunk
 from app.services.llm_gateway import LLMGateway
+from app.services.prompt_service import build_prompt
 
 
 class ChatPhase2Tests(unittest.TestCase):

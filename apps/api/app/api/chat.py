@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,31 +21,11 @@ from ..repositories.conversation_repository import ConversationRepository
 from ..services.retrieval_service import RetrievalService
 from ..services.llm_gateway import LLMGateway
 from ..services.llm_settings import llm_settings_store
+from ..services.prompt_service import build_prompt
 from ..utils.embeddings import DEFAULT_EMBEDDING_MODEL
 
 
 router = APIRouter()
-
-
-PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "answer_with_citations.txt"
-
-
-def build_prompt(question: str, context_chunks: List[schemas.RetrievedChunk]) -> str:
-    """Fill the prompt template with the user's question and retrieved context."""
-    try:
-        template = PROMPT_PATH.read_text()
-    except FileNotFoundError:
-        # fallback template
-        template = (
-            "Answer the user's question using only the provided context.\n"
-            "If the context is insufficient, say that you don't know.\n\n"
-            "Question: {question}\n"
-            "Context:\n{context}"
-        )
-    context = "\n\n".join(
-        f"[{chunk.chunk_id}] {chunk.content}" for chunk in context_chunks
-    )
-    return template.format(question=question, context=context)
 
 
 def conversation_title(question: str) -> str:

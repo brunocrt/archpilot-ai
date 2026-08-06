@@ -85,6 +85,55 @@ export interface LLMSettingsUpdate {
   api_key?: string;
 }
 
+export interface EvaluationDataset {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  case_count: number;
+}
+
+export interface EvaluationCase {
+  id: string;
+  dataset_id: string;
+  question: string;
+  expected_answer?: string;
+  expected_facts: string[];
+  expected_chunk_ids: string[];
+  created_at: string;
+}
+
+export interface EvaluationRunSummary {
+  id: string;
+  dataset_id: string;
+  dataset_name: string;
+  status: string;
+  provider?: string;
+  model?: string;
+  aggregate_metrics: Record<string, any>;
+  started_at: string;
+  completed_at?: string;
+  result_count: number;
+}
+
+export interface EvaluationResult {
+  id: string;
+  case_id: string;
+  question: string;
+  generated_answer: string;
+  retrieved_chunks: any[];
+  retrieval_metrics: Record<string, any>;
+  answer_metrics: Record<string, any>;
+  provider?: string;
+  model?: string;
+  status: string;
+  created_at: string;
+}
+
+export interface EvaluationRunDetail extends EvaluationRunSummary {
+  results: EvaluationResult[];
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export async function uploadDocument(file: File, projectId?: string): Promise<DocumentUploadResponse> {
@@ -268,6 +317,75 @@ export async function updateLLMSettings(payload: LLMSettingsUpdate): Promise<LLM
   });
   if (!res.ok) {
     throw new Error('Failed to save LLM settings');
+  }
+  return await res.json();
+}
+
+export async function listEvaluationDatasets(): Promise<EvaluationDataset[]> {
+  const res = await fetch(`${API_URL}/evaluations/datasets`);
+  if (!res.ok) {
+    throw new Error('Failed to load evaluation datasets');
+  }
+  return await res.json();
+}
+
+export async function createEvaluationDataset(name: string, description?: string): Promise<EvaluationDataset> {
+  const res = await fetch(`${API_URL}/evaluations/datasets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description }),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to create evaluation dataset');
+  }
+  return await res.json();
+}
+
+export async function createEvaluationCase(
+  datasetId: string,
+  question: string,
+  expectedFacts: string[],
+  expectedChunkIds: string[],
+): Promise<EvaluationCase> {
+  const res = await fetch(`${API_URL}/evaluations/datasets/${datasetId}/cases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question,
+      expected_facts: expectedFacts,
+      expected_chunk_ids: expectedChunkIds,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to create evaluation case');
+  }
+  return await res.json();
+}
+
+export async function listEvaluationRuns(): Promise<EvaluationRunSummary[]> {
+  const res = await fetch(`${API_URL}/evaluations/runs`);
+  if (!res.ok) {
+    throw new Error('Failed to load evaluation runs');
+  }
+  return await res.json();
+}
+
+export async function createEvaluationRun(datasetId: string, topK = 5): Promise<EvaluationRunDetail> {
+  const res = await fetch(`${API_URL}/evaluations/runs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataset_id: datasetId, top_k: topK }),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to run evaluation');
+  }
+  return await res.json();
+}
+
+export async function getEvaluationRun(runId: string): Promise<EvaluationRunDetail> {
+  const res = await fetch(`${API_URL}/evaluations/runs/${runId}`);
+  if (!res.ok) {
+    throw new Error('Failed to load evaluation run');
   }
   return await res.json();
 }

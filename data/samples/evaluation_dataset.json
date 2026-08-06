@@ -1,0 +1,14 @@
+{
+  "name": "Architecture MVP Smoke Evaluation",
+  "description": "Small local dataset for checking retrieval and grounded answer behavior.",
+  "cases": [
+    {
+      "question": "Why did ArchPilot choose a modular monolith?",
+      "expected_facts": [
+        "faster development",
+        "easier debugging"
+      ],
+      "expected_chunk_ids": []
+    }
+  ]
+}

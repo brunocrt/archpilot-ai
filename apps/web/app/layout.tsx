@@ -30,6 +30,7 @@ export default function RootLayout({
                 Upload
               </Link>
               <Link href="/history">History</Link>
+              <Link href="/evaluations">Evaluations</Link>
               <Link href="/settings">Settings</Link>
             </nav>
           </header>

@@ -5,6 +5,7 @@ from pathlib import Path
 API_ROOT = Path(__file__).resolve().parents[2]
 BASELINE_MIGRATION = API_ROOT / "migrations" / "versions" / "0001_baseline_schema.py"
 DIAGNOSTICS_MIGRATION = API_ROOT / "migrations" / "versions" / "0002_retrieval_diagnostics.py"
+EVALUATION_MIGRATION = API_ROOT / "migrations" / "versions" / "0003_evaluation_pipeline.py"
 
 
 class MigrationTests(unittest.TestCase):
@@ -52,6 +53,19 @@ class MigrationTests(unittest.TestCase):
         for column_name in expected_columns:
             with self.subTest(column_name=column_name):
                 self.assertIn(column_name, migration_source)
+
+    def test_evaluation_migration_adds_pipeline_tables(self) -> None:
+        migration_source = EVALUATION_MIGRATION.read_text()
+        expected_tables = [
+            "evaluation_datasets",
+            "evaluation_cases",
+            "evaluation_runs",
+            "evaluation_results",
+        ]
+
+        for table_name in expected_tables:
+            with self.subTest(table_name=table_name):
+                self.assertIn(table_name, migration_source)
 
 
 if __name__ == "__main__":

@@ -175,3 +175,73 @@ class FeedbackResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EvaluationDatasetCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=160)
+    description: Optional[str] = None
+
+
+class EvaluationDatasetResponse(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    created_at: datetime
+    case_count: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EvaluationCaseCreate(BaseModel):
+    question: str = Field(..., min_length=1)
+    expected_answer: Optional[str] = None
+    expected_facts: List[str] = Field(default_factory=list)
+    expected_chunk_ids: List[str] = Field(default_factory=list)
+
+
+class EvaluationCaseResponse(BaseModel):
+    id: UUID
+    dataset_id: UUID
+    question: str
+    expected_answer: Optional[str] = None
+    expected_facts: List[str] = Field(default_factory=list)
+    expected_chunk_ids: List[str] = Field(default_factory=list)
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EvaluationRunCreate(BaseModel):
+    dataset_id: str
+    top_k: int = Field(5, ge=1, le=20)
+
+
+class EvaluationResultResponse(BaseModel):
+    id: UUID
+    case_id: UUID
+    question: str
+    generated_answer: str
+    retrieved_chunks: List[dict[str, Any]] = Field(default_factory=list)
+    retrieval_metrics: dict[str, Any] = Field(default_factory=dict)
+    answer_metrics: dict[str, Any] = Field(default_factory=dict)
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    status: str
+    created_at: datetime
+
+
+class EvaluationRunSummary(BaseModel):
+    id: UUID
+    dataset_id: UUID
+    dataset_name: str
+    status: str
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    aggregate_metrics: dict[str, Any] = Field(default_factory=dict)
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    result_count: int = 0
+
+
+class EvaluationRunDetail(EvaluationRunSummary):
+    results: List[EvaluationResultResponse]

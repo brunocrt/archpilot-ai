@@ -113,3 +113,61 @@ class Feedback(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     message = relationship("Message", back_populates="feedback")
+
+
+class EvaluationDataset(Base):
+    __tablename__ = "evaluation_datasets"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False, unique=True, index=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    cases = relationship("EvaluationCase", back_populates="dataset", cascade="all, delete-orphan")
+    runs = relationship("EvaluationRun", back_populates="dataset", cascade="all, delete-orphan")
+
+
+class EvaluationCase(Base):
+    __tablename__ = "evaluation_cases"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    dataset_id = Column(UUID(as_uuid=True), ForeignKey("evaluation_datasets.id"), nullable=False, index=True)
+    question = Column(Text, nullable=False)
+    expected_answer = Column(Text, nullable=True)
+    expected_facts = Column(JSONB, nullable=True)
+    expected_chunk_ids = Column(JSONB, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    dataset = relationship("EvaluationDataset", back_populates="cases")
+    results = relationship("EvaluationResult", back_populates="case", cascade="all, delete-orphan")
+
+
+class EvaluationRun(Base):
+    __tablename__ = "evaluation_runs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    dataset_id = Column(UUID(as_uuid=True), ForeignKey("evaluation_datasets.id"), nullable=False, index=True)
+    status = Column(String, nullable=False, default="completed")
+    provider = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+    aggregate_metrics = Column(JSONB, nullable=True)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+    dataset = relationship("EvaluationDataset", back_populates="runs")
+    results = relationship("EvaluationResult", back_populates="run", cascade="all, delete-orphan")
+
+
+class EvaluationResult(Base):
+    __tablename__ = "evaluation_results"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id = Column(UUID(as_uuid=True), ForeignKey("evaluation_runs.id"), nullable=False, index=True)
+    case_id = Column(UUID(as_uuid=True), ForeignKey("evaluation_cases.id"), nullable=False, index=True)
+    generated_answer = Column(Text, nullable=False)
+    retrieved_chunks = Column(JSONB, nullable=True)
+    retrieval_metrics = Column(JSONB, nullable=True)
+    answer_metrics = Column(JSONB, nullable=True)
+    provider = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+    status = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    run = relationship("EvaluationRun", back_populates="results")
+    case = relationship("EvaluationCase", back_populates="results")

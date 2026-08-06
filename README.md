@@ -158,6 +158,27 @@ The baseline migration enables the PostgreSQL `vector` extension and creates an 
 - Retrieval uses pgvector when query embeddings are available, blends vector and keyword candidates, reranks the combined set, and supports `project_id`, `document_filename`, and `content_type` filters on chat requests.
 - Chat responses include retrieval diagnostics: retrieval mode, applied filters, source content type, project name, source signal (`vector`, `keyword`, `hybrid`, or `latest`), retrieval latency, and provider/model metadata.
 
+## Evaluation
+
+ArchPilot includes a local evaluation pipeline for checking retrieval and answer quality without sending data to an external judge model. The first implementation stores datasets, cases, runs, and per-case results in Postgres, then computes deterministic metrics:
+
+- context precision and recall when expected chunk IDs are provided
+- citation coverage based on cited retrieved chunk IDs
+- answer completeness based on expected facts
+- retrieval latency
+
+Evaluation APIs:
+
+- `POST /evaluations/datasets`
+- `GET /evaluations/datasets`
+- `POST /evaluations/datasets/{dataset_id}/cases`
+- `GET /evaluations/datasets/{dataset_id}/cases`
+- `POST /evaluations/runs`
+- `GET /evaluations/runs`
+- `GET /evaluations/runs/{run_id}`
+
+The web UI exposes these workflows at [http://localhost:3000/evaluations](http://localhost:3000/evaluations). A small starter dataset is available at `data/samples/evaluation_dataset.json`.
+
 ## Contributing
 
 This project is intended as a reference implementation and learning exercise. Feel free to extend or adapt it to your own needs.  Contributions and suggestions are welcome!

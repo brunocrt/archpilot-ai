@@ -68,7 +68,8 @@ a {
 
 .chat-panel,
 .upload-panel,
-.settings-panel {
+.settings-panel,
+.evaluation-panel {
   border: 1px solid #dce2ea;
   border-radius: 8px;
   background: #fff;
@@ -531,6 +532,136 @@ a {
   font-size: 14px;
 }
 
+.evaluation-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.evaluation-form,
+.evaluation-run-list,
+.evaluation-results {
+  display: grid;
+  gap: 12px;
+}
+
+.evaluation-form {
+  border-top: 1px solid #e4e9f1;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.evaluation-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.evaluation-form label span {
+  color: #38445a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.evaluation-form input,
+.evaluation-form select,
+.evaluation-form textarea {
+  width: 100%;
+  border: 1px solid #cfd7e3;
+  border-radius: 6px;
+  padding: 10px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
+}
+
+.evaluation-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.evaluation-form button,
+.evaluation-actions button {
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 14px;
+  background: #1f5fbf;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.evaluation-form button:disabled,
+.evaluation-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.evaluation-run-card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid #e4e9f1;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfe;
+  color: #172033;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.evaluation-run-card span {
+  font-weight: 700;
+}
+
+.evaluation-run-card small {
+  color: #647084;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-card {
+  border: 1px solid #e4e9f1;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fbfcfe;
+}
+
+.metric-card span {
+  display: block;
+  color: #647084;
+  font-size: 12px;
+}
+
+.metric-card strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 20px;
+}
+
+.evaluation-results table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.evaluation-results th,
+.evaluation-results td {
+  border-bottom: 1px solid #e4e9f1;
+  padding: 10px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.evaluation-results th {
+  color: #38445a;
+  font-weight: 700;
+}
+
 .form-error,
 .form-success {
   margin: 8px 0 0;
@@ -574,5 +705,13 @@ a {
 
   .history-layout {
     grid-template-columns: 1fr;
+  }
+
+  .evaluation-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
