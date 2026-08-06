@@ -7,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .db import init_db
 from .logging_config import configure_logging
-from .api import health, documents, chat, feedback, projects, settings as settings_api, evaluations
+from .observability import RequestObservabilityMiddleware
+from .api import health, documents, chat, feedback, projects, settings as settings_api, evaluations, metrics
 
 
 @asynccontextmanager
@@ -21,6 +22,7 @@ def create_app() -> FastAPI:
     """Factory for the FastAPI app."""
     configure_logging()
     app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
+    app.add_middleware(RequestObservabilityMiddleware)
 
     # CORS
     app.add_middleware(
@@ -39,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(feedback.router, prefix="/feedback", tags=["feedback"])
     app.include_router(settings_api.router, prefix="/settings", tags=["settings"])
     app.include_router(evaluations.router, prefix="/evaluations", tags=["evaluations"])
+    app.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
 
     return app
 

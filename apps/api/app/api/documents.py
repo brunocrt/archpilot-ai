@@ -17,6 +17,7 @@ from ..repositories.document_repository import DocumentRepository
 from ..repositories.project_repository import ProjectRepository
 from ..services.ingestion_service import IngestionService
 from ..domain import schemas
+from ..observability import metrics
 
 
 router = APIRouter()
@@ -38,6 +39,7 @@ async def upload_document(
         raise HTTPException(status_code=404, detail="Project not found")
     service = IngestionService(repo)
     doc_id = await service.ingest_upload(file, project_id=project_uuid)
+    metrics.increment("archpilot_uploaded_documents_total")
     return schemas.DocumentUploadResponse(
         document_id=doc_id,
         project_id=str(project_uuid) if project_uuid else None,

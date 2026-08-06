@@ -12,6 +12,7 @@ from ..services.llm_gateway import LLMGateway
 from ..services.llm_settings import llm_settings_store
 from ..services.prompt_service import build_prompt
 from ..services.retrieval_service import RetrievalService
+from ..observability import metrics
 
 
 class EvaluationService:
@@ -25,7 +26,9 @@ class EvaluationService:
         cases = self.repo.list_cases(dataset.id)
         for case in cases:
             await self._run_case(run, case, top_k, runtime_settings.provider, runtime_settings.model)
-        return self.repo.complete_run(run, self._aggregate_metrics(self.repo.list_results(run.id)))
+        completed = self.repo.complete_run(run, self._aggregate_metrics(self.repo.list_results(run.id)))
+        metrics.increment("archpilot_evaluation_runs_total")
+        return completed
 
     async def _run_case(
         self,
@@ -38,6 +41,7 @@ class EvaluationService:
         started = time.perf_counter()
         matches = await RetrievalService(self.db).retrieve(case.question, top_k=top_k)
         retrieval_latency_ms = (time.perf_counter() - started) * 1000
+        metrics.observe_duration("archpilot_retrieval_duration", retrieval_latency_ms)
         retrieved_chunks = [
             schemas.RetrievedChunk(
                 chunk_id=str(match.chunk.id),
@@ -52,7 +56,9 @@ class EvaluationService:
             )
             for match in matches
         ]
+        llm_started = time.perf_counter()
         answer = await LLMGateway().ask(build_prompt(case.question, retrieved_chunks))
+        metrics.observe_duration("archpilot_llm_duration", (time.perf_counter() - llm_started) * 1000)
         retrieval_metrics = self.retrieval_metrics(
             [chunk.chunk_id for chunk in retrieved_chunks],
             case.expected_chunk_ids or [],
@@ -77,6 +83,7 @@ class EvaluationService:
             model=model,
             status=status,
         )
+        metrics.increment("archpilot_evaluation_cases_total")
 
     def retrieval_metrics(
         self,

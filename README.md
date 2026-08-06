@@ -179,6 +179,26 @@ Evaluation APIs:
 
 The web UI exposes these workflows at [http://localhost:3000/evaluations](http://localhost:3000/evaluations). A small starter dataset is available at `data/samples/evaluation_dataset.json`.
 
+## Observability
+
+The API emits structured JSON logs with a request ID, method, path, status code, and duration. Incoming `X-Request-ID` headers are preserved; otherwise the API generates one and returns it as `x-request-id`.
+
+Local metrics are available in Prometheus text format:
+
+```bash
+curl http://localhost:8000/metrics/
+```
+
+Current local metrics include HTTP request/error counts, HTTP latency, uploaded documents, chat requests, retrieval latency, LLM duration, streaming time to first token, and evaluation run/case counts.
+
+To run the optional local metrics stack:
+
+```bash
+docker compose -f infra/docker-compose.yml --profile observability up --build
+```
+
+Prometheus is available at [http://localhost:9090](http://localhost:9090), and Grafana is available at [http://localhost:3001](http://localhost:3001). The default local Grafana credentials are `admin` / `admin`, unless `GRAFANA_ADMIN_USER` or `GRAFANA_ADMIN_PASSWORD` are set.
+
 ## Contributing
 
 This project is intended as a reference implementation and learning exercise. Feel free to extend or adapt it to your own needs.  Contributions and suggestions are welcome!

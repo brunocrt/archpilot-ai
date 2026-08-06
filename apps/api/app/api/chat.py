@@ -23,6 +23,7 @@ from ..services.llm_gateway import LLMGateway
 from ..services.llm_settings import llm_settings_store
 from ..services.prompt_service import build_prompt
 from ..utils.embeddings import DEFAULT_EMBEDDING_MODEL
+from ..observability import metrics
 
 
 router = APIRouter()
@@ -180,6 +181,7 @@ async def query_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) -> 
         payload.content_type,
     )
     retrieval_latency_ms = (time.perf_counter() - retrieval_started) * 1000
+    metrics.observe_duration("archpilot_retrieval_duration", retrieval_latency_ms)
     diagnostics = retrieval_diagnostics(payload, project_uuid, retrieved_chunks, retrieval_latency_ms)
 
     # Build prompt using template
@@ -187,7 +189,10 @@ async def query_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) -> 
 
     # Invoke LLM
     llm = LLMGateway()
+    llm_started = time.perf_counter()
     answer_text = await llm.ask(prompt)
+    metrics.observe_duration("archpilot_llm_duration", (time.perf_counter() - llm_started) * 1000)
+    metrics.increment("archpilot_chat_requests_total")
 
     # Persist assistant message
     assistant_message = conv_repo.add_message(conversation.id, role="assistant", content=answer_text)
@@ -231,6 +236,7 @@ async def stream_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) ->
         payload.content_type,
     )
     retrieval_latency_ms = (time.perf_counter() - retrieval_started) * 1000
+    metrics.observe_duration("archpilot_retrieval_duration", retrieval_latency_ms)
     diagnostics = retrieval_diagnostics(payload, project_uuid, retrieved_chunks, retrieval_latency_ms)
     prompt = build_prompt(payload.question, retrieved_chunks)
 
@@ -244,11 +250,18 @@ async def stream_chat(payload: schemas.ChatQuery, db=Depends(get_db_session)) ->
 
         llm = LLMGateway()
         answer_parts: list[str] = []
+        llm_started = time.perf_counter()
+        first_delta_seen = False
         async for delta in llm.ask_stream(prompt):
+            if not first_delta_seen:
+                metrics.observe_duration("archpilot_llm_time_to_first_token", (time.perf_counter() - llm_started) * 1000)
+                first_delta_seen = True
             answer_parts.append(delta)
             yield sse_event("delta", {"text": delta})
 
         answer_text = "".join(answer_parts)
+        metrics.observe_duration("archpilot_llm_duration", (time.perf_counter() - llm_started) * 1000)
+        metrics.increment("archpilot_chat_requests_total")
         assistant_message = conv_repo.add_message(conversation.id, role="assistant", content=answer_text)
         persist_retrieval_diagnostics(
             conv_repo,

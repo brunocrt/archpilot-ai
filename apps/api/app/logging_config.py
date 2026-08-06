@@ -7,18 +7,16 @@ import logging
 import sys
 
 from .config import settings
+from .observability import JsonFormatter
 
 
 def configure_logging() -> None:
     """Configure basic logging for the app."""
     log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
 
-    # Configure root logger
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonFormatter())
+    logging.basicConfig(level=log_level, handlers=[handler], force=True)
 
     # Reduce noise from third-party libraries
     for noisy in ["uvicorn", "sqlalchemy.engine", "httpx"]:
