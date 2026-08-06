@@ -179,6 +179,40 @@ Evaluation APIs:
 
 The web UI exposes these workflows at [http://localhost:3000/evaluations](http://localhost:3000/evaluations). A small starter dataset is available at `data/samples/evaluation_dataset.json`.
 
+## Demo data and public reference materials
+
+The repository includes a small local demo material set in `data/samples/demo-materials`. It contains an ArchPilot MVP reference note and a public-reference catalog with links to architecture sources. Load it into the running database with:
+
+```bash
+docker compose -f infra/docker-compose.yml run --rm api python -m app.scripts.seed_demo_data
+```
+
+From Windows using Docker Engine inside WSL Ubuntu:
+
+```powershell
+wsl.exe -d Ubuntu -- bash -lc "cd /mnt/c/Users/bruno/github/archpilot-ai && docker compose -f infra/docker-compose.yml run --rm api python -m app.scripts.seed_demo_data"
+```
+
+The command creates or reuses an `ArchPilot Demo Reference` project and skips files that were already loaded for that project.
+
+To load your own public reference materials:
+
+1. Download allowed `.txt`, `.md`, `.json`, or `.pdf` files into `data/samples/demo-materials` or another folder under `data/samples`.
+2. Run the seed command again, optionally with a custom folder and project name:
+
+   ```bash
+   docker compose -f infra/docker-compose.yml run --rm api python -m app.scripts.seed_demo_data --materials-dir data/samples/demo-materials --project-name "Public Architecture References"
+   ```
+
+Useful public starting points:
+
+- [C4 model](https://c4model.com/) for software architecture diagrams and abstractions.
+- [arc42 downloads](https://arc42.org/download) for architecture documentation templates.
+- [Azure Well-Architected Framework](https://learn.microsoft.com/en-us/azure/well-architected/what-is-well-architected-framework) for workload quality guidance.
+- [NIST SP 800-160 Vol. 1 Rev. 1](https://csrc.nist.gov/pubs/sp/800/160/v1/r1/final) for systems security engineering guidance.
+
+Only download and ingest public materials when their license or terms allow your intended use. Do not put proprietary documents, secrets, or API keys in `data/samples`.
+
 ## Observability
 
 The API emits structured JSON logs with a request ID, method, path, status code, and duration. Incoming `X-Request-ID` headers are preserved; otherwise the API generates one and returns it as `x-request-id`.

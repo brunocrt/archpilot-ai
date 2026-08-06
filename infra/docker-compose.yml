@@ -34,6 +34,7 @@ services:
       - "8000:8000"
     volumes:
       - ../data/uploads:/app/uploads
+      - ../data/samples:/app/data/samples:ro
 
   web:
     build:

@@ -23,5 +23,8 @@ class ProjectRepository:
     def get_project(self, project_id: UUID) -> Optional[models.Project]:
         return self.db.query(models.Project).filter(models.Project.id == project_id).first()
 
+    def get_project_by_name(self, name: str) -> Optional[models.Project]:
+        return self.db.query(models.Project).filter(models.Project.name == name.strip()).first()
+
     def list_projects(self) -> List[models.Project]:
         return self.db.query(models.Project).order_by(models.Project.name).all()
